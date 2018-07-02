@@ -1,76 +1,55 @@
-.TH UQWK 1 "uqwk version 1.8"
+.TH UQWK 1 "$Author: js $  $Date: 1999/10/19 08:48:42 $"
 .IX uqwk
 .IX qwk
 .SH NAME
-uqwk - Collect news and mail into packet for offline reading
+.B uqwk
+- Collect news & mail messages for offline reading
 .SH SYNOPSIS
 .B
 uqwk
-.RB [options]
+.RB [a-plethora-of-options]
 .SH DESCRIPTION
 .B uqwk
-is a program which collects all a user's unread mail or news
+is a program which collects all a user's unread news and/or mail,
 and formats it into a packet for offline
-reading, saving telephone and connect charges.  QWK, Simple Offline
-Usenet Packet (SOUP), and ZipNews formats are supported.
+reading, saving telephone and connect charges.  Simple Offline Usenet Packet
+(SOUP), ZipNews, and the deprecated QWK packet formats are supported.
+Mail can be read from classic Unix mbox format mail files, MMDF mail files,
+or maildir mailboxes.  News is either read directly from a locally available
+file system, or obtained using NNTP.
 .PP
 .B uqwk
-also accepts reply packets, so replies can be mailed
-or posted, depending whether
-the message is marked private (email) or public (news).
+also accepts reply packets, so replies can be mailed or posted, depending
+whether the message is marked private (email) or public (news).
 .PP
 .B uqwk
 also supports a small offline command language, so the contents
 of the user's .newsrc file can be viewed and manipulated offline.
-.SH OPTIONS
-.TP
-.B +m
-Do mail.
-.B uqwk
-will process all mail in the user's mail spool file and convert
-it into an offline packet.  This is the default.
-.TP
-.B -m
-Don't do mail.
-.TP
-.B +n
-Do news.  Using the user's .newsrc file and the news system's
-active file,
-.B uqwk
-will collect all unread news articles in all subscribed newsgroups
-into the packet.  This can generate a large number of messages
-and large packet files.
-.TP
-.B -n
-Don't do news.  This is the default.
-.TP
-.B +h
-Include headers.  Since the QWK specification places limits on
-the sizes of certain header fields such as To:, From:, and Subject:,
-.B uqwk
-can include all message and article headers in the body of the
-message so all fields are visible.  This is the default.  (This switch
-only applies to the QWK packet format.)
-.TP
-.B -h
-Do not include headers in messages.  (QWK only.)
-.TP
-.B +e
-Include an entry for every subscribed newsgroup in the CONTROL.DAT file.
-(QWK only).
-.TP
-.B -e
-Do not include an entry in CONTROL.DAT for empty newsgroups.  This is
-the default.  (QWK only.)
+.SH "GENERAL OPTIONS
+Note that many varieties of uqwk can be built: not all options are
+applicable to (and available) in every one.  Specifically, the
+NNTP-related options are only available in uqwk builds using
+NNTP, the options related to reading news directly from disk
+only to non-NNTP builds.  Furthermore, the options concerning
+scoring and NNTP authentication are only present if support
+for scoring, resp. NNTP authentication, was compiled in.
 .TP
 .B -p
 Print options.
 .B uqwk
+will show its version number and the options that were compiled in,
 will examine all appropriate environment variables and command
 line options, print the values of all run-time options, then exit.  This
 is useful to see what
 .B uqwk
-thinks it is going to do before you actually run it.
+thinks it is going to do before you actually run it (and what setup
+it is offering).
+.TP
+.B -v
+identical to "-p".
+.TP
+.B -?
+same as "-v".
 .TP
 .B +r
 Read only.  Normally,
@@ -84,6 +63,26 @@ will not touch these files.  This is useful for testing.
 .B -r
 Do not execute in read-only mode.  This is the default.
 .TP
+.B +m
+Do mail.
+.B uqwk
+will process all mail in the user's mail spool file and convert
+it into an offline packet.
+.TP
+.B -m
+Don't do mail.  This is the default.
+.TP
+.B +n
+Do news.  Using the user's .newsrc file and the news system's
+active file,
+.B uqwk
+will collect all unread news articles in all subscribed newsgroups
+into the packet.  This can generate a large number of messages
+and large packet files.
+.TP
+.B -n
+Don't do news.  This is the default.
+.TP
 .B +L
 Operate in SOUP (also known as HDPF or SLNP) mode.  The
 files comprising a
@@ -91,10 +90,13 @@ Simple Offline Usenet Packet (SOUP),
 specifically, AREAS and *.MSG, will
 be created instead of a QWK packet.  The reply file, if any, will
 be interpreted as an SOUP "replies" file instead of a QWK reply
-packet.
+packet.  This is the default.
 .TP
 .B -L
-Do not operate in SOUP mode.  This is the default.
+Do not operate in SOUP mode.  If (and only if) neither SOUP nor
+ZipNews mode is selected,
+.B uqwk
+will operate in QWK mode.
 .TP
 .B +z
 Operate in ZipNews mode.  The files comprising a ZipNews news
@@ -102,7 +104,39 @@ packet, specifically, "user.JN", "user.NWS", and "user.IDX",
 will be created instead of a QWK packet.
 .TP
 .B -z
-Do not operate in ZipNews mode.  This is the default.
+Do not operate in ZipNews mode.  If (and only if) neither SOUP nor
+ZipNews mode is selected,
+.B uqwk
+will operate in QWK mode.  This is the default.
+.TP
+.B -I\fIposting_agent\fR
+Specifies the program used when posting messages (usually /usr/lib/news/inews).
+.B uqwk
+adds a `-h' flag when calling it, except in plain (non-expert) QWK mode.
+.TP
+.B +V\fIn\fR
+The value of \fIn\fR determines whether articles are validated before
+posting, whether this checking is verbose, and whether the result
+is respected or ignored:
+
+  +V  Equivalent to `+V3' (default)
+  +V0 No article validation
+  +V1 Verbose article validation, ignoring the outcome
+  +V2 Silent article validation, failing articles are
+      not posted
+  +V3 Verbose article validation, articles containing
+      fatal errors are not posted
+
+Whenever checking is performed, bad articles are appended to the file
+`dead.articles' in the
+.B uqwk
+home directory. This option is only available when
+.B uqwk
+was compiled with the `GNKSA' option, in which case the default
+value is `3'.
+.TP
+.B -V
+Equivalent to `+V0', as defined above.
 .TP
 .B +x
 Honor Xref header lines in news articles.  When this switch is in
@@ -110,10 +144,138 @@ effect,
 .B uqwk
 will only pack a crossposted article in the first newsgroup
 in which it is encountered.  This can reduce the size of the packet but
-may introduce unexpected behavior on the part of the offline reader.
+may introduce unexpected behaviour on the part of the offline reader.
+This is the default.
 .TP
 .B -x
-Do not honor Xref lines.  This is the default.
+Do not honor Xref lines.
+.TP
+.B +F
+Ignore error on nonexisting news messages; proceed instead of aborting.
+This is the default.
+.TP
+.B -F
+Signal an error and abort on missing news messages.
+.TP
+.B -M\fImailspool\fR
+Look in the directory \fIfImailspool\fR for the mailbox file (or maildir mailbox).
+The default is /var/spool/mail.
+.TP
+.B -f\fImailfile\fR
+Look for mail in the file \fImailfile\fR.  The default is a file (or maildir
+mailbox) with the same name as the user's login name in \fIfImailspool\fR;
+however, the MAIL environment variable is used when set.
+This switch overrides the
+.B -M
+switch.
+.TP
+.B -a\fIactivefile\fR
+Use \fIactivefile\fR for the list of all available newsgroups and
+article numbers.  The default is /usr/local/news/lib/active.  This option is
+not available if
+.B uqwk
+obtains articles from a news server using NNTP.
+.TP
+.B -S\fInewsdir\fR
+Look for news articles in the directory \fInewsdir\fR.  The default
+is /var/spool/news.  This option is not available if
+.B uqwk
+obtains articles from a news server using NNTP.
+.TP
+.B -N\fInewsrcfile\fR
+Use \fInewsrcfile\fR for the list of all newsgroups to which the
+user is subscribed and the list of article numbers which have been
+read.  The default is $HOME/.newsrc.
+.TP
+.B -u\fIusername\fR
+By default
+.B uqwk
+uses the getpwuid() system call to determine the proper user
+name to use.  This switch overrides the results of that call.
+.TP
+.B -H\fIhomedir\fR
+By default,
+.B uqwk
+uses the getpwuid() system call to determine the user's home
+directory.  The home directory is where the files comprising
+the offline packet will be created.  It is also where
+.B uqwk
+looks for the .newsrc file.  This switch may be used to
+override the results of the getpwuid() call.
+.TP
+.B -B\fImaxblocks\fR
+Stop processing news articles if the size of the offline packet
+exceeds \fImaxblocks\fR 128-byte blocks.
+This is useful since large amounts of unread news can create large
+packets.  Use a \fImaxblocks\fR value of zero to suppress this
+check.  The default is 4096 blocks (half a megabyte).
+.TP
+.B -D\fIngfile\fR
+Process newsgroups in the order specified in \fIngfile\fR.  \fIngfile\fR
+is expected to contain one newsgroup name per line.
+.TP
+.B -U\fIsumfile\fR
+Operate in "summary" mode.  Instead of packing articles,
+.B uqwk
+creates a
+summary file, \fIsumfile\fR, which consists of the newsgroup name,
+article number, and subject line of each unread article.  All summarized
+articles are marked as read.
+.TP
+.B -E\fIselfile\fR
+Operate in "selection" mode.  Instead of using the .newsrc file to
+determine which articles to pack,
+.B uqwk
+reads \fIselfile\fR, a file in the
+same format as the summary file.  (The actual subjects are optional in
+\fIselfile\fR.)  The idea is that a summary may be created by using -U,
+downloaded, edited or processed by additional software to select
+desired articles, uploaded, and fed to the -E switch for offline article
+selection.
+.TP
+.B -R\fIreplyfile\fR
+Process \fIreplyfile\fR as a reply packet.  Messages and articles
+created by the offline reader must be uploaded as a reply packet
+and then processed by this switch to be mailed or posted.  If
+operating in SOUP mode, this file should be the REPLIES file.
+.B uqwk
+will remove \fIreplyfile\fR when it has been processed unless
+it is running in read-only mode.  If operating in ZipNews mode,
+this switch should specify the
+.B directory
+in which the ZipNews reply files reside.  No default reply file is set.
+.TP
+.B -d\fIhostname\fR
+Use the specified \fIhostname\fR when processing ZipNews reply packets.
+This should be the fully-qualified domain name of the Unix host.  The
+default is "nowhere".
+.SH "QWK MODE OPTIONS"
+.TP
+.B +h
+Include headers.  Since the QWK specification places limits on
+the sizes of certain header fields such as To:, From:, and Subject:,
+.B uqwk
+can include all message and article headers in the body of the
+message so all fields are visible.  This is the default.  (This switch
+only applies to the QWK packet format.)
+.TP
+.B -h
+Do not include headers in messages.  (QWK only.)
+.TP
+.B -l\fIlen\fR
+Truncate the names of newsgroups to \fIlen\fR characters.  Some
+offline readers cannot handle long newsgroup names.  Newsgroup names
+are truncated after having been translated.  The default
+is 15 characters.  Specify a value of zero for unlimited
+newsgroup name lengths.  (QWK only.)
+.TP
+.B +e
+Include an entry for every subscribed newsgroup in the CONTROL.DAT file.
+(QWK only).
+.TP
+.B -e
+Do not include an entry in CONTROL.DAT for empty
+newsgroups.  This is the default.  (QWK only.)
 .TP
 .B +W
 Activate the Blue Wave kludge.  The Blue Wave QWK reader does not like
@@ -139,32 +301,11 @@ really know what they're doing.  (QWK only.)
 .B -X
 Do not operate in expert QWK mode.  This is the default.
 .TP
-.B -M\fImaildir\fR
-Look in the directory \fImaildir\fR for the mail spool file.  The
-default is /usr/spool/mail.
-.TP
-.B -f\fImailfile\fR
-Look for mail in the file \fImailfile\fR.  The default is a file
-with the same name as the user's login name in \fImaildir\fR.
-This switch overrides the
-.B -M
-switch.
-.TP
-.B -u\fIusername\fR
-By default
-.B uqwk
-uses the getpwuid() system call to determine the proper user
-name to use.  This switch overrides the results of that call.
-.TP
-.B -H\fIhomedir\fR
-By default,
-.B uqwk
-uses the getpwuid() system call to determine the user's home
-directory.  The home directory is where the files comprising
-the offline packet will be created.  It is also where
-.B uqwk
-looks for the .newsrc file.  This switch may be used to
-override the results of the getpwuid() call.
+.B -t\fItablefile\fR
+Translate newsgroup names as specified in \fItablefile\fR.  Each line
+in \fItablefile\fR is expected to have two fields separated by white
+space:  The old name of the newsgroup and the name to which it
+will be translated.  (QWK only.)
 .TP
 .B -b\fIbbsname\fR
 Specify the BBS Name to be entered into the QWK packet.  The default
@@ -189,158 +330,117 @@ in any incoming reply packets.  If the two do not match, the reply
 packet will not be processed.  The BBS ID consists of an integer,
 a comma, and a string of less than nine characters, with no spaces.
 The default is "0,SOMEBBS".  (QWK only.)
+.SH "SCORING OPTIONS"
 .TP
-.B -a\fIactivefile\fR
-Use \fIactivefile\fR for the list of all available newsgroups and
-article numbers.  The default is /usr/lib/news/active.  This option
-is ignored if articles are being obtained from a news server using
-NNTP.
-.TP
-.B -N\fInewsrcfile\fR
-Use \fInewsrcfile\fR for the list of all newsgroups to which the
-user is subscribed and the list of article numbers which have been
-read.  The default is a file called ".newsrc" in the user's home
-directory.
-.TP
-.B +w
-Interpret the \fInewsrcfile\fR as a Waffle "join" file instead of
-a regular Unix .newsrc.
-.TP
-.B -w
-Do not interpret the \fInewsrcfile\fR as a Waffle "join" file.
+.B +k
+Perform kill/score processing.  The global score file will be read
+(if it exists), as well as the score file for the current group,
+and each article will becored'.  See the "USING SCORE FILES" section below.
 This is the default.
 .TP
-.B -D\fIngfile\fR
-Process newsgroups in the order specified in \fIngfile\fR.  \fIngfile\fR
-is expected to contain one newsgroup name per line.
+.B -k
+Do not perform kill/score processing.
 .TP
-.B -S\fInewsdir\fR
-Look for news articles in the directory \fInewsdir\fR.  The default
-is /usr/spool/news.  This option
-is ignored if articles are being obtained from a news server using
-NNTP.
+.B -T\fIn\fR
+Set global threshold to signed integer \fIn\fR.  The default is 0.
 .TP
-.B -B\fImaxblocks\fR
-Stop processing news articles if the size of the offline packet
-exceeds \fImaxblocks\fR 128-byte blocks.
-This is useful since large amounts of unread news can create large
-packets.  Use a \fImaxblocks\fR value of zero to suppress this
-check.  The default is 4000 blocks (half a megabyte).
+.B -K\fIkilldir\fR
+Look for score files in \fIkilldir\fR.  The default is $HOME/.uqwk.
+.SH "NNTP AUTHENTICATION OPTIONS"
 .TP
-.B -t\fItablefile\fR
-Translate newsgroup names as specified in \fItablefile\fR.  Each line
-in \fItablefile\fR is expected to have two fields separated by white
-space:  The old name of the newsgroup and the name to which it
-will be translated.  (QWK only.)
+.B +A\fIusername\fR:\fIpassword\fR
+Perform NNTP authentication, specifying the username and password to
+use for that purpose. (NNTP only)
 .TP
-.B -l\fIlen\fR
-Truncate the names of newsgroups to \fIlen\fR characters.  Some
-offline readers cannot handle long newsgroup names.  Newsgroup names
-are truncated after having been translated.  The default
-is 15 characters.  Specify a value of zero for unlimited
-newsgroup name lengths.  (QWK only.)
-.TP
-.B -R\fIreplyfile\fR
-Process \fIreplyfile\fR as a reply packet.  Messages and articles
-created by the offline reader must be uploaded as a reply packet
-and then processed by this switch to be mailed or posted.  If
-operating in SOUP mode, this file should be the REPLIES file.
-.B uqwk
-will remove \fIreplyfile\fR when it has been processed unless
-it is running in read-only mode.  If operating in ZipNews mode,
-this switch should specify the
-.B directory
-in which the ZipNews reply files reside.
-.TP
-.B -d\fIhostname\fR
-Use the specified \fIhostname\fR when processing ZipNews reply packets.
-This should be the fully-qualified domain name of the Unix host.  The
-default is "nowhere".
-.TP
-.B -U\fIsumfile\fR
-Operate in "summary" mode.  Instead of packing articles,
-.B uqwk
-creates a
-summary file, \fIsumfile\fR, which consists of the newsgroup name,
-article number, and subject line of each unread article.  All summarized
-articles are marked as read.
-.TP
-.B -E\fIselfile\fR
-Operate in "selection" mode.  Instead of using the .newsrc file to
-determine which articles to pack,
-.B uqwk
-reads \fIselfile\fR, a file in the
-same format as the summary file.  (The actual subjects are optional in
-\fIselfile\fR.)  The idea is that a summary may be created by using -U,
-downloaded, edited or processed by additional software to select
-desired articles, uploaded, and fed to the -E switch for offline article
-selection.
-.TP
-.SH "ENVIRONMENT VARIABLES"
+.B -A
+Don't do NNTP authentication.  This is the default.  (NNTP only)
+.SH ENVIRONMENT
 Most of the run-time options can also be controlled by
 environment variables.  If an option is specified by both
 an environment variable and a command-line option, the
 command-line option is honored.
+.PP
+Note that, as with options, not all variables are meaningful in
+al possible incarnations of the program.
 .TP
 .B UQ_DO_MAIL
 Determines whether or not to process mail.  Should be set to
-"1" (do mail) or "0" (don't do mail).
+`1' (do mail) or `0' (don't do mail).
 .TP
 .B UQ_DO_NEWS
 Determines whether or not to process news.  Should be set to
-"1" (do news) or "0" (don't do news).
+`1' (do news) or `0' (don't do news).
 .TP
 .B UQ_INC_HDRS
 Determines whether or not to include headers in messages.
-Should be set to "1" (include headers) or "0" (don't include
+Should be set to `1' (include headers) or `0' (don't include
 headers).
 .TP
 .B UQ_EVERY_MODE
 Determines whether or not to include an entry in CONTROL.DAT for
-empty newsgroups.  Should be set to "1" (include empty groups)
-or "0" (don't include empty groups).
+empty newsgroups.  Should be set to `1' (include empty groups)
+or `0' (don't include empty groups).
 .TP
 .B UQ_PRT_OPTS
 Determines whether or not to just print the values of run-time
-options and stop.  Should be set to "1" (print options) or
-"0" (don't print options).
+options and stop.  Should be set to `1' (print options) or
+`0' (don't print options).
 .TP
 .B UQ_READ_ONLY
 Determines whether or not to run in read-only mode.  Should be
-set to "1" (read-only) or "0" (not read-only).
+set to `1' (read-only) or `0' (not read-only).
 .TP
 .B UQ_WAF_MODE
 Determines whether the .newsrc file should be interpreted as
-a Waffle "join" file.  Should be set to "0" (normal) or "1"
+a Waffle "join" file.  Should be set to `0' (normal) or `1'
 (Waffle mode).
 .TP
 .B UQ_SOUP_MODE
 Determines whether or not to run in SOUP mode.  Should be set
-to "0" (don't run in SOUP mode) or "1" (run in SOUP mode).
+to `0' (don't run in SOUP mode) or `1' (run in SOUP mode).
 .TP
 .B UQ_ZIP_MODE
 Determines whether or not to run in ZipNews mode.  Should be set
-to "0" (don't run in ZipNews mode) or "1" (run in ZipNews mode).
+to `0' (don't run in ZipNews mode) or `1' (run in ZipNews mode).
+.TP
+.B UQ_INEWS_PATH
+Specifies the posting agent (usually inews) to be used.
+.B uqwk
+calls it with a `-h' command line switch, except in non-expert QWK mode.
+.TP
+.B UQ_VALIDATE
+Determines the level of message validation.   Applicable only with
+GNKSA support compiled in.  See the `+V' switch for details.
 .TP
 .B UQ_XRF_MODE
 Determines whether or not to honor Xref lines.  Should be set to
-"0" (do not honor Xref lines) or "1" (honor Xref lines).
+`0' (do not honor Xref lines) or `1' (honor Xref lines).
+.B UQ_IGNORE0FD
+Determines whether or not to ignore nonexisting news messages; `0' to
+abort, `1' to ignore.
 .TP
 .B UQ_BW_KLUDGE
 Determines whether or not to activate the Blue Wave kludge.  Should be
-set to "0" (do not activate the Blue Wave kludge) or "1" (activate
+set to `0' (do not activate the Blue Wave kludge) or `1' (activate
 the Blue Wave kludge).
 .TP
 .B UQ_XPRT_MODE
 Determines whether or not to operate in QWK expert mode.  Should be
-set to "0" (do not run in expert mode) or "1" (run in expert mode).
+set to `0' (do not run in expert mode) or `1' (run in expert mode).
 .TP
 .B UQ_MAIL_DIR
-Specifies the directory where the mail spool file resides.
+Specifies the directory where the mailbox file (or maildir type
+mailbox) resides.
 .TP
 .B UQ_MAIL_FILE
-Specifies the mail spool file.
+Specifies the mailbox file (or maildir mailbox).
 .TP
+.B UQ_ACT_FILE
+Specifies the name of the news system's active file.
+.TP
+.TP
+.B UQ_NEWS_DIR
+Specifies the directory where the news spool resides.
 .B UQ_USER_NAME
 Specifies the username of the person running
 .B uqwk.
@@ -365,9 +465,6 @@ Specifies the BBS sysop name to be entered into the QWK packet.
 .TP
 .B UQ_BBS_ID
 Specifies the BBS ID to be entered into the QWK packet.
-.TP
-.B UQ_ACT_FILE
-Specifies the name of the news system's active file.
 .TP
 .B UQ_NRC_FILE
 Specifies the name of the user's .newsrc file.
@@ -399,6 +496,101 @@ to execute in summary mode.
 Specifies the name of the selection file, if any.  Also causes
 .B uqwk
 to execute in selection mode.
+.TP
+.B UQ_DO_KILLS
+Determines whether or not to perform kill/score processing.
+Should be set to `1' (do scoring) or `0' (don't do scoring).
+.TP
+.B UQ_KILL_THRESHOLD
+Specifies the global threshold.  Should be set to a signed integer.
+.TP
+.B UQ_KILL_DIR
+Specifies the directory where the score files are.
+.TP
+.B UQ_AUTH_USER
+Specifies the username to use for NNTP authentication.
+If, and only if, both a username and a password are set, NNTP
+authentication will be attempted.
+.TP
+.B UQ_AUTH_PASS
+Specifies the password to use for NNTP authentication.
+If, and only if, both a username and a password are set, NNTP
+authentication will be attempted.
+.SH "USING SCORE FILES"
+If support for scoring was compiled in,
+.B uqwk
+can "score articles" while collecting news, so that articles
+whose "score" is below a certain threshold can be excluded
+from the packet.  The rules according to which articles are scored
+are specified by the user in so-called score files.
+.PP
+The format of these score files is based on the score files used
+by some offline readers (notably YARN).  Each newsgroup can have a
+score file; its name is the name of the group.  There is also
+a global score file, that applies to all groups, which is called
+"global".
+.PP
+Getting started
+.PP
+If you find some class of articles you wish to exclude from a particular
+newsgroup, use any text editor to create a file named after it.
+Each line of such a file contains a score, a place to look
+for a keyword or regular expression, and the keyword.
+.PP
+For example, to exclude all crossposted articles from talk.bizarre,
+create a file called "talk.bizarre" in the directory $HOME/.uqwk, with
+the following line in it:
+.PP
+  -10 Newsgroups: ,
+.PP
+The effect of this line in this file would be that all articles
+in talk.bizarre which' "Newsgroups: " header contains a `,' would
+get -10 added to their initial score of 0.  With a threshold of 0,
+that means that unless other lines add enought to compensate, these
+articles will not be included.
+.PP
+Score file format
+.PP
+Each score file carries the name of the group it applies to, and
+consists of a series of score lines.  Blank lines and lines beginning
+with `#' are ignored.  Lines can have any of the following formats:
+.TP
+.B killthreshold \fIn\fR
+specifies an integer score \fIn\fR that articles must meet or
+exceed in order to be included in the packet.  This line is
+optional, if not present the global kill threshold is used.
+(which defaults to 0 if not set).
+.TP
+.B \fIscore\fR \fIheader\fR \fIpattern\fR
+constitutes an actual scoring line; \fIscore\fR is added to an article's
+score if the remainder of the line matches.  To match, the specified
+\fIpattern\fR must match with the articles's indicated \fIheader\fR.
+The specified pattern is always interpreted as a regular expression;
+for reasons of compatibility patterns can be preceded with the word "pattern".
+.PP
+The global score file is processed first.  Its patterns are applied to
+all articles.  Score lines are processed in sequence.  An article that
+scores below the kill threshold will not be included.
+.PP
+Example alt.usenet.offline-reader score file
+.PP
+  # only include articles explicitly selected
+  killthreshold 1
+.PP
+  # select messages about FurriNews
+  +2 Subject: FurriNews
+  # select messages about uqwk
+  +2 Subject: uqwk
+.PP
+  # eliminate messages about crapware
+  -666 Subject: microsoft
+  -666 Subject: netscape
+.PP
+Limitations, additional notes
+.PP
+It should be noted that only headers are scanned for computing scores.
+Furthermore, all scanning is done using POSIX regex functions -- even
+when a simple substring search could have sufficed.
 .SH "COMMAND LANGUAGE"
 If, while processing a reply packet,
 .B uqwk
@@ -439,8 +631,7 @@ In QWK mode, it is possible to send mail to long email addresses by
 including, as the first thing in the body of the message, a line of
 the form:
 .PP
-.ce
-To: user@site.com
+  To: user@site.com
 .PP
 (The space after the colon is important.)
 .SH BUGS
@@ -458,15 +649,27 @@ to maintain a separate .newsrc file strictly for
 .B uqwk.
 .PP
 .B uqwk
-does not do mail locking.  If new mail arrives while
+does not do mail locking.  New mail messages that arrive while packing
+mail can therefore be lost.  If this worries you (it should), there are
+a few ways of preventing message loss.  One approach (see the `getsoup'
+script, listed below, for an example) is to move your messages to a
+temporary file, and let
 .B uqwk
-is packing mail, the new message may be lost.  If you're worried about
-this, either make a copy of your mail spool before running
-.B uqwk,
-or run
+collect the messages from that file instead of directly from the system
+mailbox.  Since messages might get appended at any time, locking must
+be applied even while the mailbox is being moved.  Another approach is to
+explicitly lock the mailbox before, and unlock it after, running
 .B uqwk
-in read-only mode and erase your mail spool manually when
-you think it is safe.
+-- i.e. like this:
+.PP
+  lockfile -l666 -ml; trap "lockfile -mu" 1 2 3 13 15
+  uqwk +m
+  lockfile -mu; trap "" 1 2 3 13 15
+.PP
+A third approach to run
+.B uqwk
+in read-only mode and clean up your mailbox afterwards; in which case
+one can but hope one really knows what one's doing.
 .PP
 .B uqwk
 does not support the ZipNews offline commands.  To perform
@@ -474,31 +677,196 @@ offline configuration using
 .B uqwk,
 send mail to the username "UQWK" in
 the format described in the COMMAND LANGUAGE section above.
+.SH "SAMPLE SCRIPTS"
+It may be convenient for users to employ simple shell scripts for
+preparing packets using uqwk, and for handling reply packets.  A
+few examples might prove instructive.
+.PP
+.B getsoup
+- collect mail and news into a SOUP packet
+.PP
+  #!/bin/sh
+
+  UQWKARGS="-B0 -m +L"
+
+  # What to do?  Set variables to enable.
+  #UQ_DO_MAIL=1
+  UQ_DO_NEWS=1
+  export UQ_DO_MAIL UQ_DO_NEWS
+
+  # NNTPAUTH="yes please!"
+
+  # When reading mail from the system mailbox, locking
+  # will have to be done somehow.  If your Unix system
+  # does not have lockfile, but does have /usr/ucb/mail,
+  # use UQ_LOCKING="ucbmail".  See below.
+
+  UQ_LOCKING="lockfile"
+
+  #
+  # No user servicable parts below (I hope)
+  #
+
+  prg=`basename $0`
+
+  if [ -z "$UQ_DO_MAIL" -a -z "$UQ_DO_NEWS" ]
+  then
+    echo "$prg: nothing to do"                          >&2
+    exit
+  fi
+
+  UQ_HOME_DIR=$HOME/.uqwk
+  UQ_NRC_FILE=$HOME/.newsrc
+  export UQ_HOME_DIR UQ_NRC_FILE
+
+  # Do things in a nice, cozy subdirectory
+  if [ ! -d $UQ_HOME_DIR ]
+  then
+    echo "$prg: $UQ_HOME_DIR does not exist, creating it"
+    mkdir -p $UQ_HOME_DIR
+    if [ ! -d $UQ_HOME_DIR ]
+    then
+      echo "$prg: failed to create $UQ_HOME_DIR"        >&2
+      echo "$prg: bailing out"                          >&2
+      exit 1
+    fi
+  fi
+  cd $UQ_HOME_DIR
+
+  soupfile=soup.zip
+
+  if [ -f $soupfile ] ; then
+    echo "Hmmm, $soupfile already exists."
+    rm -i $soupfile
+    if [ -f $soupfile ] ; then
+      exit 1
+    fi
+  fi
+
+  if [ -n "$UQ_DO_NEWS" ]
+  then
+    UQWKARGS="$UQWKARGS +n"
+    # Get auth stuff (nntp auth mode only)
+    if [ -n "$NNTPAUTH" ]
+    then
+      while [ -z "$UQ_AUTH_PASS" ]
+      do
+        echo "Authentication for server $NNTPSERVER;"
+        echo "Username: $USER, password: \\c"
+        stty -echo
+          read UQ_AUTH_PASS; echo
+        stty echo
+      done
+      # Pass these through environment
+      UQ_AUTH_USER=$USER; export UQ_AUTH_USER UQ_AUTH_PASS
+    fi
+  fi
+
+  if [ -n "$UQ_DO_MAIL" ]
+  then
+    UQWKARGS="$UQWKARGS +m"
+
+    # Read mail from the system mail box?
+    if [ -z "$UQ_MAIL_FILE" ]
+    then
+      # uqwk does not do mailbox locking.  Locking options:
+      #  - procmail's nifty "lockfile" utility
+      #  - /usr/ucb/mail ("ucbmail")
+      UQ_MAIL_FILE=/tmp/$prg.$USER.mbx.$$;
+      export UQ_MAIL_FILE
+
+      case $UQ_LOCKING in
+      "lockfile")
+        lockfile -l666 -ml; trap "lockfile -mu" 1 2 3 13 15
+         mv $MAIL $UQ_MAIL_FILE
+         lockfile -mu; trap "" 1 2 3 13 15
+         ;;
+      "ucbmail")
+         ( echo 's1-$' $UQ_MAIL_FILE ; echo q )          |
+           /usr/ucb/mail >/dev/null
+         ;;
+      *)
+         echo "$prg: no, or unknown, locking method"     >&2
+         echo "$prg: bailing out"                        >&2
+         exit 1
+         ;;
+      esac
+    fi
+  fi
+
+  #
+  # Now we know how to call uqwk, proper args 'n' all
+  #
+  uqwk $UQWKARGS; err=$?
+  if [ $err -ne 0 ]
+  then
+    echo "$prg: fatal error in uqwk"                    >&2
+    echo "$prg: proceed with caution"                   >&2
+  fi
+
+  # Create the SOUP packet
+  #
+  if [ "`echo *.MSG`" = "*.MSG" ]
+  then
+    echo "Sorry, nothing to get."
+    rm -f AREAS
+    exit
+  fi
+  zip -m $soupfile AREAS *.MSG
+  mv $soupfile $HOME
+
+  echo "Done, you can upload
+    <ftp://$USER@ftp.`domainname`/$soupfile>
+  now."
+.PP
+.B putsoup
+- process a SOUP reply packet
+.PP
+  #!/bin/sh
+
+  prg=`basename $0`
+  rf=reply.zip; cd $UQ_HOME_DIR
+
+  if [ ! -f $rf ]; then
+    echo "$prg: no reply packet found"                  >&2
+    exit 1
+  fi
+
+  unzip -ju $rf                                 2>/dev/null
+
+  if uqwk -m -n +L -RREPLIES
+  then
+    echo "$prg: fatal uqwk error, proceed with caution" >&2
+  fi
+
+  echo "Done. If all went well, $rf can safely be deleted."
+  rm -i $rf
 .SH "SEE ALSO"
 .PD
+.BR inews(8),
+.BR lockfile(1),
 .BR mail(1),
-.BR inews(8)
+.BR procmail(1)
 .SH ACKNOWLEDGEMENTS
 .PP
 .B uqwk
-was inspired by a conversation with Harry Lockwood
-(lockwood@world.std.com).
+was inspired by a conversation with Harry Lockwood <lockwood@world.std.com>.
 .PP
-QWK format was designed by Mark "Sparky" Herring (mark.herring@nashville.com).
-The creator of SOUP is Rhys Weatherley (rhys@cs.uq.oz.au).
-The creator of ZipNews is Jack Kilday (jkilday@nlbbs.com).
+QWK format was designed by Mark "Sparky" Herring <mark.herring@nashville.com>.
+The creator of SOUP is Rhys Weatherley <rhys@cs.uq.oz.au>.
+The creator of ZipNews is Jack Kilday <jkilday@nlbbs.com>.
 .PP
-Thanks to Patrick Y. Lee (patlee@panix.com) for the QWK documentation.
+Thanks to Patrick Y. Lee <patlee@panix.com> for the QWK documentation.
 Many thanks also to the beta-testers:  Karl J. Vesterling
-(kjv@exucom.com) and Brian J. Coan (brian@igc.apc.org).
+<kjv@exucom.com> and Brian J. Coan <brian@igc.apc.org>.
 .PP
-Many thanks to Ken Whedbee (kcw@grumpy.ksc.nasa.gov) for the NNTP
+Many thanks to Ken Whedbee <kcw@grumpy.ksc.nasa.gov> for the NNTP
 modifications.
 .PP
 Many other people, too numerous to list here, contributed bug
 fixes and suggestions for improvement.
 .SH AUTHOR
-steve belczyk, steve1@genesis.nred.ma.us, seb3@gte.com.
+Steve Belczyk, steve1@genesis.nred.ma.us, seb3@gte.com.
 .PP
 Copyright (C) 1993-1994 by steve belczyk.
 Permission to use, copy, modify and distribute this software and its
@@ -507,3 +875,10 @@ that the above copyright notice appear in all copies and that both that
 copyright notice and this permission notice appear in supporting
 documentation.  This software is provided "as is" without expressed or
 implied warranty.
+.SH "MODIFIED BY"
+Jeroen Scheerder, js@cwi.nl, js@xs4all.nl, js@phil.ruu.nl.
+.SH "MORE ACKNOWLEDGEMENTS"
+.PP
+Jim Tittsler <7j1ajh@amsat.org> came up with decent scoring code. Jos
+den Bekker <josdb@xs4all> provided valuable suggestions and bugfixes,
+most notably regarding error handling.
