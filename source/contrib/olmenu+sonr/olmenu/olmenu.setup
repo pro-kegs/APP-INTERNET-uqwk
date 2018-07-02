@@ -1,0 +1,66 @@
+                OLMenu - Offline Reader System for uqwk
+                              version 1.15
+
+                System operation and setup notes - 7/19/95
+
+OLMenu is a shell script and related files written for the Unix operating
+system that utilizes uqwk (written by Steve Belczyk <seb3@gte.com>)
+to handle e-mail and usenet news articles in upload and download
+packets. SOUP, QWK, BlueWave and Zipnews formats are supported.
+
+The name OLMenu in the program file and all documentation refers to the
+Offline Reader System in general, and to the olmenu script in particular.
+
+External program requirements include:
+
+uqwk
+hytelnet or another text browser        # for help pages
+   
+OLMenu is being developed and used on a system using AT&T System V
+Release 4.2 Unix, and will run in ksh (Korn shell) or in sh (Bourne 
+shell).
+
+The distribution file, olmenu.zip, contains the following files:
+
+olmenu          Main program file
+olmenu.howto    Program help file
+olmenu.setup    System operation and setup notes (this file)
+
+Setup Procedures
+----------------
+
+* Individual installation
+
+	All files in olmenu.zip may be placed in your $HOME directory.
+	The script, olmenu, is configured for individual installation.
+
+* System installation
+
+	Unzip olmenu.zip in a convenient directory.
+
+        The olmenu script should be located in or linked to /usr/rbin/
+        (or wherever restricted executables may be located).
+
+        The olmenu.howto (help) file location is defined by the
+        OLMenuPath variable on line 39 in the olmenu script.
+
+* All installations
+
+        Edit the olmenu script in the User Configuration Area as
+        required, ESPECIALLY in the QWK Configuration area!
+        Values that may need to be changed are commented. A
+        personal installation that will use SOUP format only 
+        should need no editing.
+
+-----------------
+
+OLMenu is still evolving. Comments, criticisms, suggestions for
+improvement/enhancement will be appreciated. Let me know how it
+benefits you!
+
+I want OLMenu to be a valuable part of your Offline Reader System, so 
+don't hesitate to contact me for support. I'm available for questions 
+from sysadmins and individual users alike.
+
+Ken Gresham
+kgresham@america.net

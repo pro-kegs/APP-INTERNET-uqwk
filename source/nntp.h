@@ -1,4 +1,6 @@
-
+/*
+ * $Id: nntp.h,v 1.3 1999/03/08 22:37:34 js Exp $
+ */
 
 /*
  * This header file comes from NNTP 1.5.10
@@ -92,9 +94,23 @@
 
 /* RFC 977 defines this; don't change it. */
 
-#define	NNTP_STRLEN	512
+/* #define	NNTP_STRLEN	512 */
+/* but, unfortunately, some cross-posted articles cause INN to offer    */
+/* longer lines; furthermore, 1036bis prescribes `at least 1000 octets' */
+#define	NNTP_STRLEN	2048
 
 /* MUST be in increasing order of completeness! */
 #define GET_STATUS	1		/* test for existence only */
 #define GET_HEADER	2		/* if only header items are desired */
 #define GET_ARTICLE	3		/* retreive full article  */
+
+/* J$ some prototypes */
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
+#include <arpa/inet.h>
+
+int handle_server_response(int response, char *nntpserver);
+int get_tcp_socket(char *machine);
+int get_server(char *string, int size);

@@ -1,0 +1,208 @@
+#!/bin/ksh
+#
+# Simple Offline News/Mail Reader - version 1.02 10/07/95
+#
+# Using SOUP format, upload and send mail and news article replies;
+# package and download new mail and news articles using menu-based 
+# system with uqwk.
+#
+# Copyright 1995 by Ken Gresham (kgresham@america.net)
+# Permission is hereby granted to use, copy, modify and distribute this 
+# software and it's documentation for any purpose and without fee provided
+# that the above copyright notice appears in all copies and that the above 
+# copyright notice and this permission notice appear in all supporting
+# documentation. This software is provided "as is" and without expressed 
+# or implied warranty.
+# 
+# --------------------------
+# User Configuration Section
+# --------------------------
+# Reply packet name (name must end in .zip)
+ReplyFile="reply.zip"
+# New message packet name
+NewFile="new.zip"
+# Size of download packet in blocks (4000 blocks = ~500kb unzipped, or
+# set to 0 for unlimited size [be careful!!])
+BlockSize=4000
+# Home directory
+HomeDir=$HOME
+# Temporary working directory
+TempWork="$HOME/Tempdir"
+# SOUP Options
+SOUPOPTS=" -r +L -H$TempWork -B$BlockSize -N$HOME/.newsrc "
+# ---------------------------------
+# End of User Configuration Section
+# ---------------------------------
+
+Header()
+{
+clear
+echo
+echo "__________________Simple Offline News/mail Reader___________________"
+echo
+}
+
+# Get a character from the terminal
+GetChar()
+{
+stty raw
+reply=`dd if=/dev/tty bs=1 count=1 2>/dev/null`
+stty -raw
+echo "" 
+}
+
+Transfer()
+{
+while :
+do
+Header
+echo ""
+echo ""
+echo "                  Select a transfer protocol"
+echo ""
+echo "                  X) Xmodem"
+echo "                  Y) Ymodem"
+echo "                  Z) Zmodem"
+echo "                  F) ftp"
+GetChar
+case $reply in
+[XxYyZzFf]*) Protocol=$reply
+             export Protocol
+             return;;
+esac
+done
+}
+
+Upload()
+{
+case $Protocol in
+     X|x) xmodem -rb $HomeDir/$ReplyFile;;
+     Y|y) rb $HomeDir/$ReplyFile;;
+     Z|z) rz;;
+     F|f) Header
+          echo ""
+          echo ""
+          echo ""
+          echo "                  Transfer $ReplyFile via ftp now..."
+          echo "                  then press enter in this screen"
+          echo "                  to continue..."
+          GetChar;;
+esac
+}
+
+Download()
+{
+case $Protocol in
+     X|x) xmodem -sb $HomeDir/$NewFile > dljunk 2>&1
+          rm dljunk;;
+     Y|y) sb $HomeDir/$NewFile > dljunk 2>&1
+          rm dljunk;;
+     Z|z) sz -w 8192 $HomeDir/$NewFile > dljunk 2>&1
+          rm dljunk;;
+     F|f) Header
+          echo ""
+          echo ""
+          echo ""
+          echo "                  Transfer $NewFile via ftp now..."
+          echo "                  then press enter in this screen"
+          echo "                  to continue..."
+          GetChar;;
+esac
+}
+
+Send()
+{
+unzip -Uj $HomeDir/$ReplyFile
+clear
+echo "Sending messages..."
+echo
+uqwk -m -n +L -RREPLIES
+sleep 1
+}
+
+RmFiles()
+{
+# Look for temporary files and directory - remove if found
+if [ -d $TempWork ] 
+then rm -fr $TempWork 
+fi
+# Remove old reply file if found
+if [ -f $HomeDir/$ReplyFile ]
+then rm $HomeDir/$ReplyFile
+fi
+# Remove old message file if found
+if [ -f $HomeDir/$NewFile ]
+then rm $HomeDir/$NewFile
+fi
+}
+
+# Main Program
+#
+# Create temporary working directory if needed
+if [ ! -d $TempWork ]
+then mkdir $TempWork
+fi
+# Get file transfer protocol
+Transfer
+# Clean up old files from aborted session
+# Prompt to send old reply file if found, then remove
+if [ -f $HomeDir/$ReplyFile ]
+then Header
+     echo "\n\n"
+     echo "               Old $ReplyFile found - [S]end or [R]emove?"
+     GetChar
+     case $reply in
+       S|s) Send;;
+         *) rm $HomeDir/$ReplyFile;;
+     esac
+fi
+# Prompt to download old message file if found, then remove
+if [ -f $HomeDir/$NewFile ]
+then Header
+     echo "\n\n"
+     echo "               Old $NewFile found - [D]ownload or [R]emove?"
+     GetChar
+     case $reply in
+       D|d) Download;;
+         *) rm $HomeDir/$NewFile;;
+     esac
+fi
+# Main menu
+while :
+do
+Header
+echo ""
+echo ""
+echo "                  1) Upload reply packet ($ReplyFile)"
+echo "                  2) Download new mail"
+echo "                  3) Download newsgroup articles"
+echo "                  4) Download mail and newsgroup articles"
+echo ""
+echo "                  Q) Quit"
+GetChar
+Selection=$reply
+case $Selection in
+  1) Upload
+     Send;;
+  2) clear; echo "Packaging messages..."; echo ""
+     uqwk +m -n $SOUPOPTS
+     zip -jkmT $HomeDir/$NewFile $TempWork/AREAS $TempWork/*.MSG
+     sleep 1
+     Download;;
+  3) clear; echo "Packaging messages..."; echo
+     uqwk -m +n $SOUPOPTS
+     zip -jkmT $HomeDir/$NewFile $TempWork/AREAS $TempWork/*.MSG
+     sleep 1
+     Download;;
+  4) clear; echo "Packaging messages..."; echo
+     uqwk +m +n $SOUPOPTS
+     zip -jkmT $HomeDir/$NewFile $TempWork/AREAS $TempWork/*.MSG
+     sleep 1
+     Download;;
+Q|q) clear
+     # Clear out temporary files
+     RmFiles
+     exit;;
+  *) ;;
+esac
+done

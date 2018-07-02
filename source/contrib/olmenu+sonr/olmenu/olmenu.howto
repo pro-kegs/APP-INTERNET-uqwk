@@ -1,0 +1,103 @@
+OLMenu - Menu-based Offline Reader System
+
+Starting the Offline Reader System
+
+The Offline Reader System may be started from the shell prompt by entering 
+"olmenu", or may be installed on a menu system:
+
+---------------
+
+Configuring the Offline Reader System
+
+From the main screen, you may choose how Reply and New packets, mail 
+and news articles are handled by entering one of the letter selections
+in the menu. Entering selections U, D, M, N, or R  will toggle the setting.
+
+You may choose:
+
+U) Upload Reply Packet:         NO
+D) Download New Packet:         YES
+
+M) Read Mail:                   YES
+N) Read News:                   NO
+
+R) Mark new messages as read?   YES
+
+C) Configure Offline Reader System
+E) Execute with session settings
+Q) Quit
+
+Entering C will present the configuration menu:
+
+P) Packet type is:
+S) SOUP Reply Packet Name is:
+O) SOUP Out Packet Name is:
+Q) QWK/BlueWave Reply Packet Name is:
+W) QWK/BlueWave Out Packet Name is:
+Z) ZipNews Reply Packet Name is:
+N) ZipNews Out Packet Name is:
+D) Working Directory is:
+T) File Transfer Protocol is:
+A) Prompt before deleting d/l packet:
+C) Change Out Packet Size:
+
+X) Return to Main Menu
+
+Selection P toggles among the packet format types.
+
+Selections S, O, Q, W, Z, and N allow you to change the packet names.
+
+Selection O renames the working directory used by the reader system.
+
+Selection T will present a menu with file transfer protocols:
+
+X) Xmodem
+Y) Ymodem
+Z) Zmodem
+F) ftp
+
+Selection A gives you the option of having the download (d/l) packet
+deleted automatically after downloading, or of being prompted to (S)ave
+or (D)elete the d/l packet. The default is NO (that is, to NOT be prompted).
+If ftp is the transfer protocol, you are always prompted.
+
+Selection C allows you to change the size of the New (download) Packet.
+The default value is 4000 blocks of 128 bytes each, which is roughly
+500kb before zipping. You may change this to a larger value, or to
+0 (zero), which allows UQWK to pack everything selected regardless of
+size. Use caution when resetting this value!
+
+---------------
+
+Execute the Offline Reader System using the current configuration and 
+session settings by entering E from the Main Menu.
+
+Entering Q will terminate the Offline Reader System and return you either to 
+the menu system or the shell prompt.
+
+The configuration is saved upon exit and loaded when OLMenu is invoked.
+
+---------------
+
+Running in a telnet session
+
+When running in a telnet session to your shell account, an ftp session 
+will be used to transfer the reply file and/or the new message file,
+created by OLMenu and uqwk, between Connect Atlanta and your local terminal.
+
+When instructed, you will switch to your ftp session and transfer the 
+file requested, then switch back to the telnet session to continue with
+the Offline Reader System.
+
+---------------
+
+Special thanks to Cindy McKinnon who originated the offline reader
+project and the staff at Access America/Connect Atlanta (tm) who
+made possible this work.
+
+Thanks to Dirk A. Loedding (judge@america.net), Jude Dashiell
+(jude@omni.voicenet.com) and others for many valuable suggestions
+and comments.
+
+Suggestions for future versions and bug reports will be appreciated,
+and should be e-mailed to kgresham@america.net.

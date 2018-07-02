@@ -1,0 +1,763 @@
+#!/bin/sh
+########################################################################
+#        OLMenu - A menu-driven offline reader system for UQWK         #
+#                                                                      #
+#                     Version 1.16sh     11/06/95                      #
+#                                                                      #
+#  Copyright (C) 1995  by  Ken  Gresham <kgresham@america.net>         #
+#  Permission  to  use,  copy, modify  and  distribute  this software  #
+#  and its documentation for any purpose  and  without  fee is hereby  #
+#  granted,  provided  that  the above copyright notice appear in all  #
+#  copies  and  that  both  that copyright notice and this permission  #
+#  notice  appear  in  supporting  documentation.  This  software  is  #
+#  provided "as is" without expressed or implied warranty.             #
+#                                                                      #
+########################################################################
+#                     Begin User Configuration Area                    #
+########################################################################
+#
+##      SYSTEM VARIABLES - Modify as needed for your system           ##
+#       Some variables are set within uqwk's system setup
+#
+#       Home directory
+HomeDir=$HOME
+#       Working directory for UQWK
+UQ_HOME_DIR=$HomeDir;            export UQ_HOME_DIR
+WorkDir=/tmp/$LOGNAME
+#       Name of .newsrc file
+UQ_NRC_FILE=$HomeDir/.newsrc;           export UQ_NRC_FILE
+#       Name of active news file
+UQ_ACT_FILE=/usr/local/news/active;       export UQ_ACT_FILE
+#
+##      PATH to OLMenu help files. Change as required.
+#       Uncomment next line for system-wide installation.
+# OLMenuPath='/usr/lib/offline'
+#       Uncomment next line for individual installation in $HOME directory
+OLMenuPath=$HOME
+#
+##      COMMANDS that might need to be globally changed.
+#
+#       Zip utility
+ZIP="zip -j -k -m -T "
+#       Unzip utility
+UNZIP="unzip -j -o "
+#       Browser for help file
+BROWSER=hytelnet; export BROWSER    # Can use page or more as text browser
+#
+##      QWK CONFIGURATION
+# Data for the .inf file that QWK readers create. These values may
+# already be set up in uqwk. Run uqwk -p to check the runtime settings.
+# The values below are an example only! Change the values before
+# uncommenting the lines!
+#
+#       Host name, used as BBSID for QWK packets
+#HOST=MARLIN
+FN_HOST=`echo $HOST | tr "[A-Z]" "[a-z]"`
+#       Fully qualified domain name
+#UQ_HOST_NAME=ssnet.com;          export UQ_HOST_NAME
+#UQ_BBS_NAME="unknown BBS"
+#UQ_BBS_CITY="Anytown, USA"
+#UQ_BBS_PHONE="555-1212"
+#UQ_BBS_SYSOP="Joe Sysop"
+# Most important, identifies reply packet. Consists of an integer, a
+# comma, and up to nine characters, with no spaces.
+#UQ_BBS_ID="0,$HOST"
+#export UQ_BBS_NAME UQ_BBS_CITY UQ_BBS_PHONE
+#export UQ_BBS_SYSOP UQ_BBS_ID
+# Length of newsgroup names in characters. 0=no limit.
+UQ_GRP_LEN=0; export UQ_GRP_LEN
+#
+##      PACKET FILENAMES - may be changed in Configuration menu
+#
+#       SOUP Reply filename
+SOUPReply="reply.zip"
+#       SOUP Message filename
+SOUPOut="new.zip"
+#       QWK Reply filename
+QWKReply="$FN_HOST.rep"
+#       QWK Message filename
+QWKOut="$FN_HOST.qwk"
+#       ZipNews Reply filename
+ZNReply="$FN_HOST.pst"
+#       ZipNews outgoing filename
+ZNOut="$FN_HOST.zns"
+#
+#####################################################################
+#                      End User Configuration Area                  #
+#####################################################################
+
+# Assign default constants and variables (some may be configured in OLMenu):
+DoUpload=NO                     
+DoDownload=YES
+Protocol=Zmodem
+DoMail=YES
+ShowMail=YES
+DoNews=NO
+ShowNews=NO
+MarkAsRead=NO
+DeletePrompt=NO
+UQ_MAX_BLKS=4000;       export UQ_MAX_BLKS
+Packet=SOUP
+
+# Begin Function Declarations
+
+ReadEnv()
+{
+# Get the saved configuration from the last session
+if [ -f $HOME/.olmenurc1 ]
+        then . $HOME/.olmenurc1
+fi
+# If $WorkDir doesn't exist, create it.
+if [ ! -d $WorkDir ]
+        then mkdir $WorkDir
+fi
+if [ $DoDownload = NO ]
+	then ShowMail="---"
+	     ShowNews="---"
+	else ShowMail=$DoMail
+	     ShowNews=$DoNews
+fi
+SetUQWK
+}
+
+WriteEnv()
+{
+# Write new configuration values to .olmenurc1 file
+echo "DoUpload=$DoUpload" > $HOME/.olmenurc1
+echo "DoDownload=$DoDownload" >> $HOME/.olmenurc1
+echo "Protocol=$Protocol" >> $HOME/.olmenurc1
+echo "SOUPReply=\"$SOUPReply\"" >> $HOME/.olmenurc1
+echo "SOUPOut=\"$SOUPOut\"" >> $HOME/.olmenurc1
+echo "QWKReply=\"$QWKReply\"" >> $HOME/.olmenurc1
+echo "QWKOut=\"$QWKOut\"" >> $HOME/.olmenurc1
+echo "ZNReply=\"$ZNReply\"" >> $HOME/.olmenurc1
+echo "ZNOut=\"$ZNOut\"" >> $HOME/.olmenurc1
+echo "DoMail=$DoMail" >> $HOME/.olmenurc1
+echo "DoNews=$DoNews" >> $HOME/.olmenurc1
+echo "MarkAsRead=$MarkAsRead" >> $HOME/.olmenurc1
+echo "DeletePrompt=$DeletePrompt" >> $HOME/.olmenurc1
+echo "UQ_MAX_BLKS=$UQ_MAX_BLKS" >> $HOME/.olmenurc1
+echo "Packet=$Packet" >> $HOME/.olmenurc1
+}
+
+OldFiles()
+{
+# List and optionally remove message-related files
+# from the $HOME directory and $WorkDir subdirectory
+if [ -f $HomeDir/$ReplyFile ]
+	then Header
+        echo
+        echo -n "                Old $ReplyFile found - (P)rocess or (R)emove? "
+	GetSelection
+	case $reply in
+             [Pp]*) case $Packet in
+                         SOUP) $UNZIP -U $HomeDir/$ReplyFile ;;
+                            *) $UNZIP $HomeDir/$ReplyFile ;;
+                    esac
+                    Reply;;
+                 *) rm $HomeDir/$ReplyFile
+                    echo
+                    echo "                $ReplyFile removed";;
+	esac
+sleep 1
+fi
+if [ -f $HomeDir/$OutFile ]
+	then Header
+        echo
+        echo -n "                Old $OutFile found - (D)ownload or (R)emove? "
+	GetSelection
+	case $reply in
+             [Dd]*) Download
+                    echo "                press enter to continue"
+                    read keypress;;
+                 *) rm $HomeDir/$OutFile
+                    echo "                $OutFile removed"
+                    sleep 1;;
+	esac
+fi
+clear
+if [ -f $WorkDir/* ]
+        then Header
+        echo
+        echo "                You have the following files in $WorkDir:"
+	echo
+        ls $WorkDir/*
+        echo
+        echo -n "                Would you like to remove them? (y/n) "
+        GetChar
+        case $reply in
+        [Yy]*) rm -f $WorkDir/*
+               echo
+               echo "                Files have been removed."
+               ;;
+            *) echo
+               echo "                Files have not been removed"
+               ;;
+        esac
+        sleep 1
+fi
+}
+
+CleanFiles()
+{
+if [ -d $WorkDir ]
+then rm -fr $WorkDir
+fi
+}
+
+Header()
+{
+# Syntax: Header
+# Clear the screen and write a header.
+clear
+echo "               OLMenu 1.17 - Offline Reader System"
+echo 
+echo "__________________enter h for help in any menu________________________"
+}
+
+MainMenu()
+{
+# Main menu template
+Header
+echo
+echo "                   Session Settings"
+echo
+echo "                U) Upload Reply Packet:      $DoUpload"
+echo "                D) Download New Packet:      $DoDownload"
+echo "                   ($Packet packet via $Protocol)"
+echo
+echo "                M) Read Mail:                $ShowMail"
+echo "                N) Read News:                $ShowNews"
+echo
+echo "                R) Mark Messages as Read:    $MarkAsRead"
+echo
+echo "                C) Configure Offline Reader System"
+echo "                E) Execute with Session Settings"
+echo "                Q) Quit"
+echo
+echo -n "                   Select [UDMNRCEQ]: "
+GetSelection
+    case $reply in
+    [Uu]*) if [ $DoUpload = YES ]
+	   then DoUpload=NO
+           else DoUpload=YES
+	   fi			  
+	   ;;
+    [Dd]*) if [ $DoDownload = YES ]
+           then DoDownload=NO
+                ShowMail="---"
+                ShowNews="---"
+           else DoDownload=YES
+                ShowMail=$DoMail
+                ShowNews=$DoNews
+           fi
+           ;;
+    [Mm]*) if [ $DoDownload = YES ]
+           then if [ $DoMail = YES ]
+                then DoMail=NO
+		     ShowMail=NO
+                else DoMail=YES
+		     ShowMail=YES
+                fi
+           else ShowMail="---"
+           fi
+           ;;
+    [Nn]*) if [ $DoDownload = YES ]
+           then if [ $DoNews = YES ]
+                then DoNews=NO
+		     ShowNews=NO
+                else DoNews=YES
+		     ShowNews=YES
+                fi
+           else ShowNews="---"
+           fi
+	   ;;
+    [Rr]*) if [ $MarkAsRead = YES ]
+                then MarkAsRead=NO
+                else MarkAsRead=YES
+           fi
+           ;;
+    [Cc]*) ConfigMenu ;;
+    [Ee]*) RunUQWK;;
+    [Qq]*) clear
+	   WriteEnv
+	   CleanFiles
+	   exit ;;
+    [Hh]*) clear; $BROWSER ${OLMenuPath}/olmenu.howto ;;
+	*) BadSelection $reply ;;
+    esac
+}
+
+ConfigMenu()
+{
+# Get a selection from the Configuration Menu
+while :
+do
+# Configuration menu template
+Header
+echo
+echo "                Configure Offline Reader System"
+echo
+echo "        P) Packet type is:                    $Packet"
+echo "        S) SOUP Reply Packet Name is:         $SOUPReply"
+echo "        O) SOUP Out Packet Name is:           $SOUPOut"
+echo "        Q) QWK/BlueWave Reply Packet Name is: $QWKReply"
+echo "        W) QWK/BlueWave Out Packet Name is:   $QWKOut"
+echo "        Z) ZipNews Reply Packet Name is:      $ZNReply"
+echo "        N) ZipNews Out Packet Name is:        $ZNOut"
+echo "        T) File Transfer Protocol is:         $Protocol"
+echo "        A) Prompt before deleting d/l packet: $DeletePrompt"
+echo "        C) Change Out Packet Size:            $UQ_MAX_BLKS blocks"
+echo "        X) Return to Main Menu"
+echo
+echo -n "           Select [PSOQWZNTACX]: "
+GetSelection
+    case $reply in
+    [Pp]*) SetPacket ;;
+    [Ss]*) GetSRname ;;
+    [Oo]*) GetSOname ;;
+    [Qq]*) GetQRname ;;
+    [Ww]*) GetQOname ;;
+    [Zz]*) GetZRname ;;
+    [Nn]*) GetZOname ;;
+    [Tt]*) PSelect ;;
+    [Aa]*) GetDeletePrompt ;;
+    [Cc]*) ChgBlkSize ;;
+    [Xx]*) SetUQWK
+           return ;;
+    [Hh]*) clear; $BROWSER ${OLMenuPath}/olmenu.howto ;;
+        *) BadSelection $reply ;;
+    esac
+done
+}
+
+GetChar() 
+{
+stty raw
+reply=`dd if=/dev/tty bs=1 count=1 2>/dev/null`
+stty -raw
+echo "" 
+}
+
+GetSelection()
+{
+# Input a selection from the menus. If GetChar doesn't work for some 
+# reason, comment it out and uncomment the line following. GetChar is
+# a "hotkey" routine - "read reply" requires <enter> to be pressed after
+# the entry.
+GetChar
+# read reply
+}
+
+BadSelection()
+{
+# usage: BadSelection $var
+# Notify user of incorrect entry
+echo "                $1 is not valid - try again"
+sleep 1
+}
+
+SetPacket()
+{
+case $Packet in
+     SOUP) Packet=QWK;;
+  ZipNews) Packet=SOUP;;
+ BlueWave) Packet=ZipNews;;
+      QWK) Packet=BlueWave;;
+        *) Packet=SOUP;;
+esac
+}
+
+GetSRname()
+{
+Header
+echo
+echo "                Reply Packet Name is $SOUPReply"
+echo
+echo "                Enter a new name and press <enter> or"
+echo "                press <enter> for no change"
+echo
+echo -n "                Enter Reply Packet name: "
+read NewName
+case $NewName in
+	[a-zA-Z0-9]*) SOUPReply=$NewName
+esac
+}
+
+GetSOname()
+{
+Header
+echo
+echo "                Out Packet Name is $SOUPOut"
+echo
+echo "                Enter a new name and press <enter> or"
+echo "                press <enter> for no change"
+echo
+echo -n "                Enter Out Packet name: "
+read NewName
+case $NewName in
+        [a-zA-Z0-9]*) SOUPOut=$NewName
+esac
+}
+
+GetQRname()
+{
+Header
+echo
+echo "                Reply Packet Name is $QWKReply"
+echo
+echo "                Enter a new name and press <enter> or"
+echo "                press <enter> for no change"
+echo
+echo -n "                Enter Reply Packet name: "
+read NewName
+case $NewName in
+        [a-zA-Z0-9]*) QWKReply=$NewName
+esac
+}
+
+GetQOname()
+{
+Header
+echo
+echo "                Out Packet Name is $QWKOut"
+echo
+echo "                Enter a new name and press <enter> or"
+echo "                press <enter> for no change"
+echo
+echo -n "                Enter Out Packet name: "
+read NewName
+case $NewName in
+        [a-zA-Z0-9]*) QWKOut=$NewName
+esac
+}
+
+GetZRname()
+{
+Header
+echo
+echo "                Reply Packet Name is $ZNReply"
+echo
+echo "                Enter a new name and press <enter> or"
+echo "                press <enter> for no change"
+echo
+echo -n "                Enter Reply Packet name: "
+read NewName
+case $NewName in
+        [a-zA-Z0-9]*) ZNReply=$NewName
+esac
+}
+
+GetZOname()
+{
+Header
+echo
+echo "                Out Packet Name is $ZNOut"
+echo
+echo "                Enter a new name and press <enter> or"
+echo "                press <enter> for no change"
+echo
+echo -n "                Enter Out Packet name: "
+read NewName
+case $NewName in
+        [a-zA-Z0-9]*) ZNOut=$NewName
+esac
+}
+
+GetDeletePrompt()
+{
+# Choose whether to automatically delete $OutFile after a download 
+# with X, Y, or Zmodem.
+Header
+echo
+echo "                OLMenu can automatically delete $OutFile"
+echo "                after a download with X, Y, or Zmodem,"
+echo "                or prompt you to (S)ave or (D)elete $OutFile"
+echo "                (OLMenu always prompts after an ftp transfer)"
+echo
+echo "                Do you want to be prompted to delete $OutFile"
+echo -n "                after downloading? (y/n) "
+GetChar
+case $reply in
+    y|Y) DeletePrompt=YES;;
+      *) DeletePrompt=NO;;
+esac
+}
+
+PSelect()
+{
+# Display menu and select file transfer protocol
+Header
+echo
+echo "                The current file transfer protocol is $Protocol"
+echo
+echo "                Select a file transfer protocol,"
+echo "                or press <enter> for no change"
+echo
+echo "                X) Xmodem"
+echo "                Y) Ymodem"
+echo "                Z) Zmodem"
+echo "                F) ftp"
+echo
+echo -n "                Select [XYZF]: "
+GetSelection
+case $reply in
+    [Xx]*)  Protocol=Xmodem ;;
+    [Yy]*)  Protocol=Ymodem ;;
+    [Zz]*)  Protocol=Zmodem ;;
+    [Ff]*)  Protocol=ftp ;;
+    [Hh]*)  $BROWSER ${OLMenuPath}/olmenu.howto ;;
+esac
+}
+
+ChgBlkSize()
+{
+Header
+echo
+echo "                Default New Packet size is 4000 blocks"
+echo "                (approximately 500k before zipping)"
+echo
+echo "                Current New Packet size is $UQ_MAX_BLKS blocks"
+echo
+echo "                Enter a new size in blocks,"
+echo "                (0 for unlimited size) then <enter>"
+echo "                or <enter> for no change"
+echo
+echo -n "                Size = "
+read NewBlockSize
+case $NewBlockSize in
+        [0-9]*) UQ_MAX_BLKS=$NewBlockSize
+                export UQ_MAX_BLKS ;;
+       [!0-9]*) BadSelection $NewBlockSize ;;
+esac
+}
+
+Upload()
+{
+# Upload a file using the selected protocol
+# Modify the commands for the protocols if necessary
+if [ $DoUpload = YES ]
+then Header
+case $Protocol in
+        Xmodem) echo
+                echo "                Upload $ReplyFile now..."
+                echo
+                xmodem -rb $ReplyFile;;
+        Ymodem) echo
+                echo "                Upload $Replyfile now..."
+                echo
+                rb $ReplyFile;;
+        Zmodem) echo
+                echo "                Upload $ReplyFile now..."
+                echo
+                rz;;
+           ftp) GetFTP;;
+esac
+fi
+}
+
+Download()
+{
+# Download a file using the selected protocol
+# Modify the commands for the protocols if necessary
+Header
+case $Protocol in
+    Xmodem) xmodem -sb $HomeDir/$OutFile;;
+    Ymodem) sb $HomeDir/$OutFile;;
+    Zmodem) sz -w 8192 $HomeDir/$OutFile;;
+       ftp) PutFTP;;
+esac
+}
+
+SetUQWK()
+{
+# Set the $OPTS variables control UQWK
+if [ $MarkAsRead = NO ]
+     then UQ_READ_ONLY=1
+     else UQ_READ_ONLY=0
+fi
+if [ $ShowMail = YES ]
+     then UQ_DO_MAIL=1
+     else UQ_DO_MAIL=0
+fi
+if [ $ShowNews = YES ]
+     then UQ_DO_NEWS=1
+     else UQ_DO_NEWS=0
+fi
+UQ_HOME_DIR=$WorkDir
+export UQ_READ_ONLY UQ_DO_MAIL UQ_DO_NEWS UQ_HOME_DIR
+case $Packet in
+     SOUP) ReplyFile=$SOUPReply
+           OutFile=$SOUPOut;;
+      QWK) ReplyFile=$QWKReply
+           OutFile=$QWKOut;;
+ BlueWave) ReplyFile=$QWKReply
+           OutFile=$QWKOut;;
+  ZipNews) ReplyFile=$ZNReply
+           OutFile=$ZNOut;;
+esac
+}
+
+Reply()
+{
+case $Packet in
+     SOUP) uqwk -m -n +L -RREPLIES ;;
+      QWK) uqwk -m -n -L -R${FN_HOST}.msg ;;
+ BlueWave) uqwk -m -n -L -R${FN_HOST}.msg ;;
+  ZipNews) uqwk -m -n +z -R$HomeDir ;;
+esac
+sleep 3
+rm $HomeDir/$ReplyFile
+}
+
+Send()
+{
+case $Packet in
+     SOUP) uqwk +L
+           $ZIP $HomeDir/$SOUPOut \
+                $WorkDir/AREAS \
+                $WorkDir/*.MSG
+           sleep 2
+           Download
+           Save;;
+      QWK) uqwk -L
+           $ZIP $HomeDir/$QWKOut \
+                $WorkDir/control.dat \
+                $WorkDir/messages.dat \
+                $WorkDir/*.ndx
+           sleep 2
+           Download
+           Save;;
+ BlueWave) uqwk -x +W +h -L
+           $ZIP $HomeDir/$QWKOut \
+                $WorkDir/control.dat \
+                $WorkDir/messages.dat \
+                $WorkDir/*.ndx
+           sleep 2
+           Download
+           Save;;
+  ZipNews) uqwk +z
+           $ZIP $HomeDir/$ZNOut \
+                $WorkDir/$LOGNAME.idx \
+                $WorkDir/$LOGNAME.jn \
+                $WorkDir/$LOGNAME.mai \
+                $WorkDir/$LOGNAME.nws
+           sleep 2
+           Download
+           Save;;
+esac
+}
+
+Save()
+{
+case $Protocol in
+     ftp) echo
+          echo -n "                [S]ave or [D]elete $OutFile? "
+          GetChar
+          case $reply in
+               D|d) rm $HomeDir/$OutFile
+                    echo
+                    echo "                $OutFile has been deleted..."
+                    sleep 1 ;;
+                 *) echo
+                    echo "                $OutFile has been saved..."
+                    sleep 1 ;;
+          esac;;
+       *) if [ $DeletePrompt = NO ]
+              then rm $HomeDir/$OutFile
+              else echo
+                   echo -n "                [S]ave or [D]elete $OutFile? "
+                   GetChar
+                   case $reply in
+                        D|d) rm $HomeDir/$OutFile
+                             echo
+                             echo "                $OutFile has been deleted..."
+                             sleep 1 ;;
+                          *) echo
+                             echo "                $OutFile has been saved..."
+                             sleep 1 ;;
+                   esac
+          fi ;;
+esac
+}
+
+RunUQWK()
+{
+# Run the UQWK program using configuration from .olmenurc1
+# and selections made in this program
+SetUQWK
+if [ $DoUpload = YES ]
+then Upload
+     if [ -f $HomeDir/$ReplyFile ]
+         then Header
+         case $Packet in
+         SOUP) $UNZIP -U $HomeDir/$ReplyFile ;;
+            *) $UNZIP $HomeDir/$ReplyFile ;;
+         esac
+         if [ $? = 0 ]
+         then Reply
+         fi
+     fi
+fi
+if [ $DoDownload = YES ]
+then Header
+     Send
+fi
+sleep 1
+}
+
+GetFTP()
+{
+# Get a file with a telnet session and ftp
+while :
+do
+echo
+echo "                OLMenu is ready to receive $ReplyFile"
+echo
+echo "                Switch to your ftp session"
+echo "                and upload $ReplyFile now"
+echo
+echo "                When the transfer is complete,"
+echo "                switch back to this session and"
+echo "                press enter to continue."
+read keypress
+if [ -f $HomeDir/$ReplyFile ]
+then return
+else Header
+echo
+echo
+echo "                $ReplyFile not found..."
+echo
+echo "                [U]pload now"
+echo "                [A]bort upload"
+echo
+echo -n "                Select: [UA] "
+GetSelection
+case $reply in
+     [Aa]) return;;
+esac
+fi
+done
+}
+
+PutFTP()
+{
+# Send a file with a telnet session and ftp
+echo
+echo "                Switch to your ftp session"
+echo "                and download $OutFile NOW."
+echo
+echo "                When the transfer is complete,"
+echo "                switch back to this session and"
+}
+
+# Begin main program
+
+# Get the environment variables from .olmenurc1
+ReadEnv
+OldFiles
+# Main program loop
+while :
+do
+MainMenu
+done #end of main while/do

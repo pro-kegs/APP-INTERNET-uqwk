@@ -1,19 +1,27 @@
-#ifndef lint
-static char	*rcsid = "@(#)$Header: clientlib.c,v 1.16 91/01/12 15:12:37 sob Exp $";
-#endif
+/*
+ * $Id: nntplib.c,v 1.8 2001/10/24 11:37:10 js Exp $
+ */
+
+#if defined(NNTP) || defined (NNTPAUTH)
 
 /*
- * This software is Copyright 1991 by Stan Barber. 
+#ifndef lint
+static char	*rcsid = "@(#)$Header: /home/js/CVS-Repository/Source-Code/uqwk20/nntplib.c,v 1.8 2001/10/24 11:37:10 js Exp $";
+#endif
+ */
+
+/*
+ * This software is Copyright 1991 by Stan Barber.
  *
  * Permission is hereby granted to copy, reproduce, redistribute or otherwise
  * use this software as long as: there is no monetary profit gained
  * specifically from the use or reproduction or this software, it is not
  * sold, rented, traded or otherwise marketed, and this copyright notice is
- * included prominently in any copy made. 
+ * included prominently in any copy made.
  *
  * The author make no claims as to the fitness or correctness of this software
  * for any use whatsoever, and it is provided as is. Any use of this software
- * is at the user's own risk. 
+ * is at the user's own risk.
  *
  */
 /*
@@ -32,6 +40,7 @@ static char	*rcsid = "@(#)$Header: clientlib.c,v 1.16 91/01/12 15:12:37 sob Exp 
 
 
 #include <stdio.h>
+#include <strings.h>
 #include <sys/types.h>
 #include <ctype.h>
 #ifdef TLI
@@ -45,7 +54,7 @@ static char	*rcsid = "@(#)$Header: clientlib.c,v 1.16 91/01/12 15:12:37 sob Exp 
 #include	<netinet/in.h>
 #endif
 # define	IPPORT_NNTP	((unsigned short) 119)
-# include 	<netdb.h>	/* All TLI implementations may not have this */
+# include<netdb.h>	/* All TLI implementations may not have this */
 #else /* !TLI */
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -78,13 +87,10 @@ int socket();
 
 #include "nntp.h"
 
-#ifdef NOFDOPEN
- #include "sockstream.h"
- int     sockt = -1;
-#else
- FILE	*ser_rd_fp = NULL;
- FILE	*ser_wr_fp = NULL;
-#endif
+void connect_nntp();
+
+FILE	*ser_rd_fp = NULL;
+FILE	*ser_wr_fp = NULL;
 
 /*
  * getserverbyfile	Get the name of a server from a named file.
@@ -109,9 +115,9 @@ char	*file;
 	static char	buf[256];
 	char		*index();
 	char		*getenv();
-	char		*strcpy();
+/*	char		*strcpy();  */
 
-	if (cp = getenv("NNTPSERVER")) {
+	if ((cp = getenv("NNTPSERVER"))) {
 		(void) strcpy(buf, cp);
 		return (buf);
 	}
@@ -119,7 +125,7 @@ char	*file;
 	if (file == NULL)
 		return (NULL);
 
-	fp = fopen(file, "rb");
+	fp = fopen(file, "r");
 	if (fp == NULL)
 		return (NULL);
 
@@ -151,20 +157,15 @@ char	*file;
  *			for reading and writing to server.
  */
 
-server_init(machine)
+int server_init(machine)
 char	*machine;
 {
 	int	sockt_rd, sockt_wr;
 	char	line[256];
 	char	*index();
+#ifdef DECNET
 	char	*cp;
 
-#ifdef NOFDOPEN
-    sockt = get_tcp_socket(machine);
-    if (sockt < 0)
-        return (-1);
-#else /* !NOFDOPEN */
-#ifdef DECNET
 	cp = index(machine, ':');
 
 	if (cp && cp[1] == ':') {
@@ -194,7 +195,7 @@ char	*machine;
 	sockt_wr = dup(sockt_rd);
 #ifdef TLI
 	if (t_sync(sockt_rd) < 0){	/* Sync up new fd with TLI */
-    		t_error("server_init: t_sync");
+   t_error("server_init: t_sync");
 		ser_rd_fp = NULL;		/* from above */
 		return (-1);
 	}
@@ -204,7 +205,6 @@ char	*machine;
 		ser_rd_fp = NULL;		/* from above */
 		return (-1);
 	}
-#endif /* NOFDOPEN */
 
 	/* Now get the server's signon message */
 
@@ -226,13 +226,13 @@ char	*machine;
  *	Errors:		Printed via perror.
  */
 
-get_tcp_socket(machine)
+int get_tcp_socket(machine)
 char	*machine;	/* remote host */
 {
-	int	s;
+	int	s = 0;
 	struct	sockaddr_in sin;
-#ifdef TLI 
-	char 	*t_alloc();
+#ifdef TLI
+	char*t_alloc();
 	struct	t_call	*callptr;
 	/*
 	 * Create a TCP transport endpoint.
@@ -242,18 +242,18 @@ char	*machine;	/* remote host */
 		return(-1);
 	}
 	if(t_bind(s, (struct t_bind *)0, (struct t_bind *)0) < 0){
-	    	t_error("t_bind");
+	   t_error("t_bind");
 		t_close(s);
 		return(-1);
 	}
-	bzero((char *) &sin, sizeof(sin));	
+	bzero((char *) &sin, sizeof(sin));
 	sin.sin_family = AF_INET;
 	sin.sin_port = htons(IPPORT_NNTP);
 	if (!isdigit(*machine) ||
 	    (long)(sin.sin_addr.s_addr = inet_addr(machine)) == -1){
 		struct	hostent *gethostbyname(), *hp;
 		if((hp = gethostbyname(machine)) == NULL){
-		    	fprintf(stderr,"gethostbyname: %s: host unknown\n",
+		   fprintf(stderr,"gethostbyname: %s: host unknown\n",
 				machine);
 			t_close(s);
 			return(-1);
@@ -302,7 +302,7 @@ char	*machine;	/* remote host */
 		t_close(s);
 		return(-1);
 	}
-	
+
 #else /* !TLI */
 #ifndef EXCELAN
 	struct	servent *getservbyname(), *sp;
@@ -312,7 +312,6 @@ char	*machine;	/* remote host */
 	register char **cp;
 	static char *alist[1];
 #endif /* h_addr */
-	unsigned long inet_addr();
 	static struct hostent def;
 	static struct in_addr defaddr;
 	static char namebuf[ 256 ];
@@ -322,7 +321,7 @@ char	*machine;	/* remote host */
 		return (-1);
 	}
 	/* If not a raw ip address, try nameserver */
-	if (!isdigit(*machine) ||
+	if (!isdigit((int) *machine) ||
 	    (long)(defaddr.s_addr = inet_addr(machine)) == -1)
 		hp = gethostbyname(machine);
 	else {
@@ -372,13 +371,13 @@ char	*machine;	/* remote host */
 			return (-1);
 		}
 	        bcopy(*cp, (char *)&sin.sin_addr, hp->h_length);
-		
+
 		if (x < 0)
-			fprintf(stderr, "trying %s\n", inet_ntoa(sin.sin_addr));
+			fprintf(stderr, "trying %s\n", (char *)inet_ntoa(sin.sin_addr));
 		x = connect(s, (struct sockaddr *)&sin, sizeof (sin));
 		if (x == 0)
 			break;
-                fprintf(stderr, "connection to %s: ", inet_ntoa(sin.sin_addr));
+                fprintf(stderr, "connection to %s: ", (char *)inet_ntoa(sin.sin_addr));
 		perror("");
 		(void) close(s);
 	}
@@ -455,10 +454,10 @@ char	*machine;
 	bzero((char *) &sdn, sizeof(sdn));
 
 	switch (s = sscanf( machine, "%d%*[.]%d", &area, &node )) {
-		case 1: 
+		case 1:
 			node = area;
 			area = 0;
-		case 2: 
+		case 2:
 			node += area*1024;
 			sdn.sdn_add.a_len = 2;
 			sdn.sdn_family = AF_DECnet;
@@ -467,12 +466,12 @@ char	*machine;
 			break;
 		default:
 			if ((np = getnodebyname(machine)) == NULL) {
-				fprintf(stderr, 
+				fprintf(stderr,
 					"%s: Unknown host.\n", machine);
 				return (-1);
 			} else {
-				bcopy(np->n_addr, 
-					(char *) sdn.sdn_add.a_addr, 
+				bcopy(np->n_addr,
+					(char *) sdn.sdn_add.a_addr,
 					np->n_length);
 				sdn.sdn_add.a_len = np->n_length;
 				sdn.sdn_family = np->n_addrtype;
@@ -522,13 +521,13 @@ char	*machine;
  *	Side effects:	None.
  */
 
-handle_server_response(response, nntpserver)
+int handle_server_response(response, nntpserver)
 int	response;
 char	*nntpserver;
 {
     switch (response) {
 	case OK_NOPOST:		/* fall through */
-    		printf(
+   printf(
 	"NOTE: This machine does not have permission to post articles.\n");
 		printf(
 	"      Please don't waste your time trying.\n\n");
@@ -539,7 +538,7 @@ char	*nntpserver;
 
 	case ERR_ACCESS:
 		printf(
-   "This machine does not have permission to use the %s news server.\n",
+   "This machine did not get permission to use the news server `%s'.\n",
 		nntpserver);
 		return (-1);
 		break;
@@ -576,15 +575,20 @@ void
 put_server(string)
 char *string;
 {
+	if (!ser_wr_fp)
+	{
+		connect_nntp();
+		if (!ser_wr_fp)
+		{
+			fprintf(stderr,"cannot put string `%s' to server: stream is NULL\n",string);
+			return;
+		}
+	}
 #ifdef DEBUG
 	fprintf(stderr, ">>> %s\n", string);
 #endif
-#ifdef NOFDOPEN
-	sockprintf(sockt, "%s\r\n", string);
-#else
 	fprintf(ser_wr_fp, "%s\r\n", string);
 	(void) fflush(ser_wr_fp);
-#endif
 }
 
 
@@ -601,18 +605,20 @@ char *string;
  *	Side effects:	Talks to server, changes contents of "string".
  */
 
-get_server(string, size)
+int get_server(string, size)
 char	*string;
 int	size;
 {
 	register char *cp;
 	char	*index();
 
-#ifdef NOFDOPEN
-    if (sockgets(string, size, sockt) == NULL)
-#else
+	if (!ser_rd_fp)
+	{
+		fprintf(stderr,"cannot get string `%s' from server: stream is NULL\n",string);
+		return(-1);
+	}
+
 	if (fgets(string, size, ser_rd_fp) == NULL)
-#endif
 		return (-1);
 
 	if ((cp = index(string, '\r')) != NULL)
@@ -645,20 +651,15 @@ close_server()
 {
 	char	ser_line[256];
 
-#ifdef NOFDOPEN
-    if (sockt == -1)
-#else
 	if (ser_wr_fp == NULL || ser_rd_fp == NULL)
-#endif
 		return;
 
 	put_server("QUIT");
 	(void) get_server(ser_line, sizeof(ser_line));
 
-#ifndef NOFDOPEN
 	(void) fclose(ser_wr_fp);
 	(void) fclose(ser_rd_fp);
-#endif
 }
 
-
+
+#endif /* defined(NNTP) || defined (NNTPAUTH) */

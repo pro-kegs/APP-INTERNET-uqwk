@@ -1,0 +1,134 @@
+#!/bin/sh 
+# $Id: getsoup,v 1.1 1999/03/08 15:28:40 js Exp $
+
+UQWKARGS="-B0 -m +L"
+
+# What to do?  Set variables to enable.
+#UQ_DO_MAIL=1
+UQ_DO_NEWS=1
+export UQ_DO_MAIL UQ_DO_NEWS
+
+# NNTPAUTH="yes please!"
+
+# When reading mail from the system mailbox, locking
+# will have to be done somehow.  If your Unix system
+# does not have lockfile, but does have /usr/ucb/mail,
+# use UQ_LOCKING="ucbmail".  See below.
+
+UQ_LOCKING="lockfile"
+
+#
+# No user servicable parts below (I hope)
+#
+
+prg=`basename $0`
+
+if [ -z "$UQ_DO_MAIL" -a -z "$UQ_DO_NEWS" ]
+then
+  echo "$prg: nothing to do"                          >&2
+  exit
+fi
+
+UQ_HOME_DIR=$HOME/.uqwk
+UQ_NRC_FILE=$HOME/.newsrc
+export UQ_HOME_DIR UQ_NRC_FILE
+
+# Do things in a nice, cozy subdirectory
+if [ ! -d $UQ_HOME_DIR ]
+then
+  echo "$prg: $UQ_HOME_DIR does not exist, creating it"
+  mkdir -p $UQ_HOME_DIR
+  if [ ! -d $UQ_HOME_DIR ]
+  then
+    echo "$prg: failed to create $UQ_HOME_DIR"        >&2
+    echo "$prg: bailing out"                          >&2
+    exit 1
+  fi
+fi
+cd $UQ_HOME_DIR
+
+soupfile=soup.zip
+
+if [ -f $soupfile ] ; then
+  echo "Hmmm, $soupfile already exists."
+  rm -i $soupfile
+  if [ -f $soupfile ] ; then
+    exit 1
+  fi
+fi
+
+if [ -n "$UQ_DO_NEWS" ]
+then
+  UQWKARGS="$UQWKARGS +n"
+  # Get auth stuff (nntp auth mode only)
+  if [ -n "$NNTPAUTH" ]
+  then
+    while [ -z "$UQ_AUTH_PASS" ]
+    do
+      echo "Authentication for server $NNTPSERVER;"
+      echo "Username: $USER, password: \\c"
+      stty -echo
+        read UQ_AUTH_PASS; echo
+      stty echo
+    done
+    # Pass these through environment
+    UQ_AUTH_USER=$USER; export UQ_AUTH_USER UQ_AUTH_PASS
+  fi
+fi
+
+if [ -n "$UQ_DO_MAIL" ]
+then
+  UQWKARGS="$UQWKARGS +m"
+
+  # Read mail from the system mail box?
+  if [ -z "$UQ_MAIL_FILE" ] 
+  then
+    # uqwk does not do mailbox locking.  Locking options:
+    #  - procmail's nifty "lockfile" utility
+    #  - /usr/ucb/mail ("ucbmail")
+    UQ_MAIL_FILE=/tmp/$prg.$USER.mbx.$$;
+    export UQ_MAIL_FILE
+
+    case $UQ_LOCKING in
+    "lockfile")
+      lockfile -l666 -ml; trap "lockfile -mu" 1 2 3 13 15
+       mv $MAIL $UQ_MAIL_FILE
+       lockfile -mu; trap "" 1 2 3 13 15
+       ;;
+    "ucbmail")
+       ( echo 's1-$' $UQ_MAIL_FILE ; echo q )          |
+         /usr/ucb/mail >/dev/null
+       ;;
+    *)
+       echo "$prg: no, or unknown, locking method"     >&2
+       echo "$prg: bailing out"                        >&2
+       exit 1
+       ;;
+    esac
+  fi
+fi
+
+#
+# Now we know how to call uqwk, proper args 'n' all
+#
+uqwk $UQWKARGS; err=$?
+if [ $err -ne 0 ]
+then
+  echo "$prg: fatal error in uqwk"                    >&2
+  echo "$prg: proceed with caution"                   >&2
+fi
+
+# Create the SOUP packet
+#
+if [ "`echo *.MSG`" = "*.MSG" ]
+then
+  echo "Sorry, nothing to get."
+  rm -f AREAS
+  exit
+fi
+zip -m $soupfile AREAS *.MSG
+mv $soupfile $HOME
+
+echo "Done, you can upload
+  <ftp://$USER@ftp.`domainname`/$soupfile>
+now."

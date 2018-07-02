@@ -1,3 +1,219 @@
+$Id: HISTORY,v 1.13 2001/10/25 20:22:19 js Exp $
+
+uqwk 2.21 (js, 10/25/2001)
+
+- Rewrote a little part of the signal handling/error returning code
+
+uqwk 2.20 (js, 10/24/2001)
+
+- More bugfixed, most related to maildir and signal handling,
+  as proposed by Jos en Bekker.
+
+uqwk 2.19 (js, 10/23/2001)
+
+- Fixed a bug when SUBSCRIBEing to a group, an offline command;
+  with no connection to the server, this would still result
+  in attempts to communicate with it.  Thanks, Jos den Bekker!
+
+uqwk 2.18 (js, 10/05/2001)
+
+- Fixed a bug where uqwk closed an already closed file handle,
+  causing SIGSEGV's on some platforms, thanks to Konstantin
+  Isakov and Peter Karlsson.
+
+uqwk 2.17 (js, 04/19/2001)
+
+- Fixed a one-off error in a mail reading error message, thanks to
+  Jos den Bekker.
+
+uqwk 2.16 (js, 06/21/2000)
+
+- Fixed a bug that broke compilation without NNTP support, as noted
+  by Peter Karlsson.  Thanks, Peter!
+
+uqwk 2.15 (js, 01/03/2000)
+
+- Applied Doug Kaufman's patches.  Thanks, Doug!
+
+uqwk 2.14 (js, 10/19/1999)
+
+- Included Helmut Karlowski's modifications to ignore errors on opening
+  articles.  Thanks, Helmut!
+- Brought the manual page up to date.
+
+uqwk 2.13 (js, 09/11/1999)
+
+- Fixed an NNTP command that accidentally carried a newline too much
+  (causing existing groups to be reported as nonexistent in the worst
+  case).  Thanks to Jeff Schroeder.
+
+uqwk 2.12 (js, 07/15/1999)
+
+- Fixed a nasty bug in SLNP (SOUP) mail reply handling in which article
+  length was determined incorrectly
+
+uqwk 2.11 (js, 05/20/1999)
+
+- Several small changes to make uqwk compiler cleaner than ever
+  (thanks mainly to George Schwarz)
+
+uqwk 2.10 (js, 05/14/1999)
+
+- Put under `configure' control
+- Made to compile cleanly (even when being pedantic)
+
+uqwk 2.09 (js, 05/12/1998)
+
+- More code cleanup
+- Preempted nonexisting MSG files from addition to the AREAS file (SOUP mode)
+  (thanks to George Schwarz for pointing this out and testing)
+
+uqwk 2.08 (js, 03/07/1998)
+
+- Finished(?) maildir support; thanks to Jos den Bekker for code
+  revision, contribution and testing.
+
+uqwk 2.07 (js, 03/04/1998)
+
+- Rudimentary maildir support
+- Preparations for full maildir support
+- Some cleanup
+
+uqwk 2.06 (js, 06/02/1998)
+
+- Removed obsolete (unused) code from misc.c
+
+uqwk 2.05 (js, 05/25/1998)
+
+- Tiny modification (due to a change in GNKSAlib's API)
+
+uqwk 2.04 (js, 03/26/1998)
+
+- fixes a summary mode bug (news.c) that somehow crept in along
+  the way (thanks to Doug Kaufman for the report and the fix).
+
+uqwk 2.03 (js, 02/16/1998)
+
+- fixed an (ancient, yet unnoticed all this time...) bug in appending
+  messages (both mail and news) to QWK "messages.dat" files.
+
+uqwk 2.02 (js, 02/09/1998)
+
+- fixed a tiny bug in init.c/close.c: when processing replies only,
+  NNTP connections were opened/closed unnecessarily (NNTP uqwk only)
+
+uqwk 2.01 (js, 01/06/1998)
+
+- added basic status reporting when fetching mail
+
+uqwk 2.0 (js, 12/16/1997 -- final version)
+
+- updated to reflect MANKSA name (and interface) change
+  (MANKSA is now (again) GNKSA, the Good Net-Keeping Seal of Approval)
+- extensive acceptance testing in real life situations, no problems
+  found -- so it went final.  Finally.
+
+uqwk 2.0fc4 (js, 11/12/1997 -- fourth final candidate version)
+
+- rnews batches (== SOUP newsgroup files) contain `indexes'
+  which are _almost_ the article byte length -- almost, because
+  line termination counts as a single byte, even if represented
+  by multiple.
+  When news articles -- they shouldn't, but sometimes do somehow --
+  contain \r\n line termination, uqwk used a wrong index (the
+  file size of the article instead of the size with the number
+  of \r's subtracted).
+  uqwk now makes excruciatingly sure that articles are written to
+  the SOUP files in Unix format, with '\n' line termination,
+  and correct article indexing in them.
+- a few other (minor) fixes in news.c's error handling
+
+uqwk 2.0fc2 (js, 10/22/1997 -- second final candidate version)
+
+- changed (enhanced) control over message validation (-Vn switch)
+- worked around a few bugs occurring in a particular Unix version
+  better left unmentioned.
+
+uqwk 2.0fc1 (js, 10/21/1997 -- first final candidate version)
+
+- A few (very minor) cleanups in reply.c
+- Rethought some of the GNKSA validation decisions
+  (and adapted the man page accordingly)
+
+uqwk 2.0b7 (js, 10/13/1997 -- seventh beta version)
+
+- Updated calls to gnksalib routines
+
+uqwk 2.0b6 (js, 10/07/1997 -- sixth beta version)
+
+- Fixed (usually spurious) extra `group' (directly after FindActive()
+  in DoGroup in NNTP mode
+- Fixed one more instance of a conference being created before testing
+  whether the group actually exists
+- Reorganized/cleaned up a bit in news.c
+
+uqwk 2.0b5 (js, 10/06/1997 -- fifth beta version)
+
+- SOUP mode: a .MSG file was created, even for non-existing groups -- fixed
+- fixed a fclose() on a possibly null filehandle (crashing bug)
+- Updated the man page, and the getsoup script, for decent mailbox locking
+  strategies, and some information about it
+
+uqwk 2.0b4 (js, 10/06/1997 -- fourth beta version)
+
+- Small robustness patch, and enhanced user feedback in the
+  offline command handling functions (once again, thanks Jos den Bekker)
+
+uqwk 2.0b3 (js, 10/03/1997 -- third beta version)
+
+- More fixes in the mail handling part (again, thanks to Jos den Bekker)
+
+uqwk 2.0b2 (js, 10/01/1997 -- second beta version)
+
+- Fixes in offline.c's OffLine function (reported and fixed
+  by Jos den Bekker <josdb@xs4all.nl>
+
+uqwk 2.0b1 (js, 09/30/1997 -- first beta version)
+
+- Calls sendmail directly when mailing, in _all_ cases (sometimes,
+  "mail" was used, sometimes sendmail)
+- Fixed a few bugs w.r.t. returning errorcodes
+- Added `-I/path/to/inews' switch and global variables containing
+  the inews path as well as a full inews call (/path/to/inews -h);
+  removed `INEWS_WRAPPER' compile option.  Added UQ_INEWS_PATH
+  environment variable
+- Added (basic) message validation support (GNKSA, using gnksalib)
+- Added `+V', `-V' switches (and `UQ_VALIDATE' environment var)
+  to enable/disable message validation
+- Added a warning message against using QWK mode (Usenet message
+  headers get maimed when using the QWK format)
+- Updated the man page
+
+Note: at present, `gnksalib' is preliminary, and under development.
+
+uqwk1.8++ (js, 08/26/97 -- intermediate version):
+
+- NNTP version does not fetch entire active file, but uses the GROUP command
+  to obtain group article counts (big performance win)
+- Fixed scoring bugs (group score rules lingered on...)
+- Fixed bugs in NNTP buffer lengtht
+- Fixed bugs writing .newsrc files
+- Added errorchecking, -handling en -returning throughout the program
+  (on I/O errors)
+- Added `-i' to sendmail invocation, to make it dot-transparent
+- Added NNTP authentication code
+- Integrated Jim Tittsler's scoring code
+- More sanity checks added:
+	!(zip_mode && slnp_mode)
+- Changed SERVER #define (indicating NNTP mode) to NNTP
+- Changed nntp-code to be harmles (empty) if compiled without NNTP defined
+- Integrated Makefile.nntp into Makefile, and ditched Makefile
+- Added "install" and "install.man" options to Makefile
+- Got rid of uqwk.cat, renamed uqwk.man to uqwk.1
+- Changed behaviour regarding "irrelevant" options, and added `-v'
+  and `-?' (identical to `-p').
+- Updated documentation
+
 uqwk1.8:
 
 - Fixed fclose() of non-open file in close.c which caused core dumps.

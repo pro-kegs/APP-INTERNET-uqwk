@@ -1,0 +1,103 @@
+# $Id: Makefile.in,v 1.15 2001/10/25 20:22:19 js Exp $
+#
+#  Makefile.in for uqwk						js, 4/14/1999
+#
+# Options (driven by configure):
+#
+#	SCORES		Compile with scoring code (very useful)
+#	NNTP		Compile to use nntp to get news articles
+#			rather than read them directly from spool
+#	NNTPAUTH	Compile with nntp authentication code
+#			(defines NNTP implicitly)
+#	NNTP_FULL_ACTIVE	(for historic reasons only; not recommended)
+#			Use full active file from NNTP server (rather than
+#			just fetching info about subscribed groups only)
+#			(defines NNTP implicitly)
+#	GNKSA		Use the GNKSA toolkit for validating/correcting
+#			Usenet messages (be sure to set a proper include
+#			path in CFLAGS (-I/gnksa/lib/dir), and to include
+#			the gnksa.o file in LDFLAGS (/gnksa/lib/dir/gnksa.o)
+#	SITECFG		For site dependencies, make a copy of config-generic.h
+#			to config-<sitename>.h, and modify definitions
+#			as appropriate.
+#
+CC	=	@CC@
+CFLAGS	=	@CFLAGS@ @SCORECFLAGS@ @NNTPAUTHCFLAGS@ @NNTPCFLAGS@ @GNKSACFLAGS@ @RECFLAGS@\
+		-DHAVE_CONFIG=\"@SITECFG@\"
+LDFLAGS	=	@GNKSALDLAGS@ @RELDFLAGS@ @SOCKLIBS@
+
+prefix		=	@prefix@
+exec_prefix	=	@exec_prefix@
+bindir		=	@bindir@
+mandir		=	@mandir@
+
+BINFILES	=	uqwk
+LIBFILES	=
+INCLUDEFILES	=
+MANFILES	=	uqwk.1
+
+all:	${BINFILES}
+
+uqwk:	uqwk.o options.o init.o mail.o misc.o close.o news.o reply.o offline.o nntpclient.o nntplib.o score.o signal.o
+	$(CC) -o uqwk uqwk.o options.o init.o mail.o misc.o close.o news.o reply.o offline.o nntpclient.o nntplib.o score.o signal.o $(LDFLAGS)
+
+precompiled:	${BINFILES} ${MANFILES}
+	@(pkg=`basename \`pwd\``-`uname -rs|sed -e 's/ /-/g' -e 's/\//_/'`; tar cvf $$pkg.tar README HISTORY ${BINFILES} ${MANFILES}; gzip -9 $$pkg.tar)
+
+install:	install.man ${BINFILES}
+	mkdir -p ${bindir}
+	cp ${BINFILES} ${bindir}
+	for prg in ${BINFILES}; do chmod 755 ${bindir}/$${prg}; done
+
+install.man:	${MANFILES}
+	mkdir -p ${mandir}/man1
+	cp ${MANFILES} ${mandir}/man1
+	for doc in ${MANFILES}; do chmod 644 ${mandir}/man1/$${doc}; done
+
+
+uqwk.o:	uqwk.c uqwk.h
+
+options.o:	options.c uqwk.h uqwk-version.h 
+
+init.o:	init.c uqwk.h
+
+mail.o:	mail.c uqwk.h
+
+misc.o:	misc.c uqwk.h
+
+close.o:	close.c uqwk.h
+
+news.o:	news.c uqwk.h
+
+reply.o:	reply.c uqwk.h
+
+offline.o:	offline.c uqwk.h
+
+nntpclient.o:	nntpclient.c nntp.h
+
+nntplib.o:	nntplib.c nntp.h
+
+score.o:	score.c uqwk.h
+
+clean:
+	rm -f *.o ${BINFILES}
+
+distclean:	clean
+	rm -f config.cache config.log config.status
+
+# This one's for Larry
+love:
+	@echo "not war"
+
+dist:   distclean
+	( dir=`basename \`pwd\`` ; cd .. ;		\
+	  files=`find $$dir -type f -print	|	\
+		grep -v 'Makefile$$'		|	\
+		grep -v CVS` ;				\
+	  tar cf $$dir.tar $$files ;			\
+	  rm -f $$dir.tar.gz ;				\
+	  gzip -9 $$dir.tar )
+
+uue:    dist
+	@(dir=`basename \`pwd\`` ; cd .. ;		\
+	  uuencode $$dir.tar.gz $$dir.tar.gz > $$dir.uue )

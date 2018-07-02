@@ -1,21 +1,24 @@
+/*
+ *  $Id: init.c,v 1.3 1999/04/14 13:44:49 js Exp $
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include "uqwk.h"
 
 #define QWK_MAGIC "Produced by Qmail...Copyright (c) 1987 by Sparkware.  All rights Reserved"
 
-#ifdef SERVER
+#ifdef NNTP
 #include "nntp.h"
 extern void connect_nntp();
 #endif
 
-InitStuff()
 /*
  *  Initialize stuff
  */
+void InitStuff()
 {
 	char msg_fname[PATH_LEN];
-	int n;
 
 	/* Mail, conference, etc. lists */
 	mail_list = NULL;
@@ -34,34 +37,32 @@ InitStuff()
 	msg_fd = NULL;
 
 	/* Open MESSAGES.DAT */
-	if (!slnp_mode && !zip_mode && !sum_mode)
-	{
+	if (!slnp_mode && !zip_mode && !sum_mode) {
 		strcpy (msg_fname, home_dir);
 		strcat (msg_fname, "/");
 		strcat (msg_fname, "messages.dat");
 
-		if (NULL == (msg_fd = fopen (msg_fname, "wb")))
-		{
+		if (NULL == (msg_fd = fopen (msg_fname, "w"))) {
 			fprintf (stderr, "%s: can't open %s\n",
 				progname, msg_fname);
-			exit (0);
+			exit(-1);	/* Return failure errorcode to caller */
 		}
 
 		/* Write magic string to MESSAGES.DAT */
-		fprintf (msg_fd, QWK_MAGIC);
-		n = 128 - strlen (QWK_MAGIC);
-		while (n--) fputc (' ', msg_fd);
+		if(	(fprintf(msg_fd, "%-128s", QWK_MAGIC) < 0) /* != 128? */
+			&& ferror(msg_fd) ) {
+			fprintf(stderr,"%s: write error!\n",progname);
+			exit(-1);
+		}
 		blk_cnt = 2;
 	}
 
 	/* Open summary file */
-	if (sum_mode)
-	{
-		if (NULL == (sum_fd = fopen (sum_file, "w")))
-		{
+	if (sum_mode) {
+		if (NULL == (sum_fd = fopen (sum_file, "w"))) {
 			fprintf (stderr, "%s: can't open %s\n",
 					progname, sum_file);
-			exit (0);
+			exit(-1);	/* Return failure errorcode to caller */
 		}
 	}
 
@@ -71,12 +72,16 @@ InitStuff()
 	/* Read the desired newsgroups file if specified */
 	if (strcmp (ng_file, DEF_NG_FILE)) ReadNG();
 
-#ifdef SERVER
+#ifdef NNTP
+/* JS -- no need to open a connection if replying only!
 	if (strcmp (rep_file, DEF_REP_FILE) || do_news) connect_nntp();
+*/
+	if (do_news) connect_nntp();
+
 #endif
 }
 
-ReadTrans()
+int ReadTrans()
 /*
  *  Read the newsgroup name translation table
  */
@@ -86,29 +91,24 @@ ReadTrans()
 	char n1[PATH_LEN], n2[PATH_LEN];
 
 	/* Open the file */
-	if (NULL == (trn_fd = fopen (trn_file, "r")))
-	{
+	if (NULL == (trn_fd = fopen (trn_file, "r"))) {
 		fprintf (stderr, "%s: can't open %s, tran table not used\n",
 			progname, trn_file);
-		return (0);
+		exit(-1);	/* Return failure errorcode to caller */
 	}
 
 	/* Read through the file */
-	while (2 == fscanf (trn_fd, "%s %s", n1, n2))
-	{
+	while (2 == fscanf (trn_fd, "%s %s", n1, n2)) {
 		/* Get space for new list entry */
 
 		if (NULL == (tp = (struct trn_ent *)
-				malloc (sizeof (struct trn_ent))))	
-		{
+				malloc (sizeof (struct trn_ent)))) {
 			OutOfMemory();
 		}
-		if (NULL == (tp->old = (char *) malloc (strlen(n1)+1)))
-		{
+		if (NULL == (tp->old = (char *) malloc (strlen(n1)+1))) {
 			OutOfMemory();
 		}
-		if (NULL == (tp->new = (char *) malloc (strlen(n2)+1)))
-		{
+		if (NULL == (tp->new = (char *) malloc (strlen(n2)+1))) {
 			OutOfMemory();
 		}
 
@@ -125,35 +125,31 @@ ReadTrans()
 	return (0);
 }
 
-ReadNG()
+int ReadNG()
 /*
  *  Read the desired newsgroups file
  */
 {
 	FILE *ng_fd;
-	struct ng_ent *np, *last_np;
+	struct ng_ent *np, *last_np = NULL;
 	char n[PATH_LEN];
 
 	/* Open the file */
-	if (NULL == (ng_fd = fopen (ng_file, "r")))
-	{
+	if (NULL == (ng_fd = fopen (ng_file, "r"))) {
 		fprintf (stderr, "%s: can't open %s, ng file not used\n",
 			progname, ng_file);
-		return (0);
+		exit(-1);	/* Return failure errorcode to caller */
 	}
 
 	/* Read through the file */
-	while (1 == fscanf (ng_fd, "%s", n))
-	{
+	while (1 == fscanf (ng_fd, "%s", n)) {
 		/* Get space for new list entry */
 
 		if (NULL == (np = (struct ng_ent *)
-				malloc (sizeof (struct ng_ent))))	
-		{
+				malloc (sizeof (struct ng_ent)))) {
 			OutOfMemory();
 		}
-		if (NULL == (np->name = (char *) malloc (strlen(n)+1)))
-		{
+		if (NULL == (np->name = (char *) malloc (strlen(n)+1))) {
 			OutOfMemory();
 		}
 
@@ -161,13 +157,10 @@ ReadNG()
 		strcpy (np->name, n);
 
 		/* Add to list */
-		if (ng_list == NULL)
-		{
+		if (ng_list == NULL) {
 			/* First one */
 			ng_list = np;
-		}
-		else
-		{
+		} else {
 			/* Add to end */
 			last_np->next = np;
 		}
@@ -178,4 +171,3 @@ ReadNG()
 	fclose (ng_fd);
 	return (0);
 }
-

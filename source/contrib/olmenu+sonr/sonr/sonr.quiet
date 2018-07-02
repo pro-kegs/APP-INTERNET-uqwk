@@ -1,0 +1,150 @@
+#!/bin/ksh
+#
+# Simple Offline News/Mail Reader - version 1.01 09/19/95
+# Modified for "quiet mode". Menu's will not appear.
+# Command entry is unchanged. May enhance operation of speech
+# software and "hands off" operation with comm program scripts.
+# Ftp file transfer is not supported in this version. Error handling
+# such as prompting to handle old upload and download files has
+# been removed. Announcements that indicate messages being sent or
+# packaged for download have been retained to indicate operation. 
+#
+# Using SOUP format, upload and send mail and news article replies;
+# package and download new mail and news articles using menu-based 
+# system with uqwk.
+#
+# Copyright 1995 by Ken Gresham (kgresham@america.net)
+# Permission is hereby granted to use, copy, modify and distribute this 
+# software and it's documentation for any purpose and without fee provided
+# that the above copyright notice appears in all copies and that the above 
+# copyright notice and this permission notice appear in all supporting
+# documentation. This software is provided "as is" and without expressed 
+# or implied warranty.
+# 
+# --------------------------
+# User Configuration Section
+# --------------------------
+# Reply packet name (name must end in .zip)
+ReplyFile="reply.zip"
+# New message packet name
+NewFile="new.zip"
+# Size of download packet in blocks (4000 blocks = ~500kb unzipped, or
+# set to 0 for unlimited size [be careful!!])
+BlockSize=4000
+# Home directory
+HomeDir=$HOME
+# Temporary working directory
+TempWork="$HOME/Tempdir"
+# SOUP Options
+SOUPOPTS=" -r +L -H$TempWork -B$BlockSize -N$HOME/.newsrc "
+# ---------------------------------
+# End of User Configuration Section
+# ---------------------------------
+
+# Get a character from the terminal
+GetChar()
+{
+stty raw
+reply=`dd if=/dev/tty bs=1 count=1 2>/dev/null`
+stty -raw
+echo "" 
+}
+
+Transfer()
+{
+while :
+do
+GetChar
+case $reply in
+[XxYyZzFf]*) Protocol=$reply
+             export Protocol
+             return;;
+esac
+done
+}
+
+Upload()
+{
+case $Protocol in
+     X|x) xmodem -rb $HomeDir/$ReplyFile > junk 2>&1;;
+     Y|y) rb $HomeDir/$ReplyFile > junk 2>&1;;
+     Z|z) rz > junk 2>&1;;
+esac
+rm junk
+}
+
+Download()
+{
+case $Protocol in
+     X|x) xmodem -sb $HomeDir/$NewFile > dljunk 2>&1
+          rm dljunk;;
+     Y|y) sb $HomeDir/$NewFile > dljunk 2>&1
+          rm dljunk;;
+     Z|z) sz -w 8192 $HomeDir/$NewFile > dljunk 2>&1
+          rm dljunk;;
+esac
+}
+
+Send()
+{
+unzip -Ujq $HomeDir/$ReplyFile > junk 2>&1
+clear
+echo "Sending messages..."
+echo
+uqwk -m -n +L -RREPLIES > junk 2>&1
+rm junk
+}
+
+RmFiles()
+{
+# Look for temporary files and directory - remove if found
+if [ -d $TempWork ] 
+then rm -fr $TempWork 
+fi
+# Remove old reply file if found
+if [ -f $HomeDir/$ReplyFile ]
+then rm $HomeDir/$ReplyFile
+fi
+# Remove old message file if found
+if [ -f $HomeDir/$NewFile ]
+then rm $HomeDir/$NewFile
+fi
+}
+# Main Program
+#
+# Create temporary working directory if needed
+if [ ! -d $TempWork ]
+then mkdir $TempWork
+fi
+# Get file transfer protocol
+Transfer
+# Main menu
+while :
+do
+GetChar
+Selection=$reply
+case $Selection in
+  1) Upload
+     Send;;
+  2) clear; echo "Packaging messages..."
+     uqwk +m -n $SOUPOPTS > junk 2>&1
+     rm junk
+     zip -jkmTq $HomeDir/$NewFile $TempWork/AREAS $TempWork/*.MSG
+     Download;;
+  3) clear; echo "Packaging messages..."
+     uqwk -m +n $SOUPOPTS > junk 2>&1
+     rm junk
+     zip -jkmTq $HomeDir/$NewFile $TempWork/AREAS $TempWork/*.MSG
+     Download;;
+  4) clear; echo "Packaging messages..."
+     uqwk +m +n $SOUPOPTS > junk 2>&1
+     rm junk
+     zip -jkmTq $HomeDir/$NewFile $TempWork/AREAS $TempWork/*.MSG
+     Download;;
+Q|q) clear
+     # Clear out temporary files
+     RmFiles
+     exit;;
+  *) ;;
+esac
+done

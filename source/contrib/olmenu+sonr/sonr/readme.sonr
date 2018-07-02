@@ -1,0 +1,31 @@
+		sonr - Simple Offline News/mail Reader
+
+Sonr is a Unix shell script that automates the operation of uqwk by
+providing a simple menu-based interface. It requires a minimum of imput 
+from the user to upload and send SOUP format reply packets, and to package  
+and download mail, news articles, or both in a SOUP format packet.
+
+Sonr.quiet is a version of sonr that prints to the screen only a minimum 
+number of messages, indicating the sending and packaging of mail and 
+news articles. It is intended primarily for use with speech interpretive 
+software or comm scripts that benefit from or don't require menu's 
+appearing on the screen. The commands are identical to the standard sonr, 
+and it is recommended that the standard version be installed first to become 
+familiar with the commands.
+
+Sonr is an alternative to OLMenu for those who do not require OLMenu's  
+configurable features.
+
+Sonr101.zip should be unzipped either in a user's $HOME directory, or in 
+a directory in the executable path. The file sonr is the only one 
+required. A few items may be configured in the User Configuration Area of 
+the script if desired, but this should not be required for either a 
+system or individual installation.
+
+Copyright 1995 by Ken Gresham (kgresham@america.net)
+Permission is hereby granted to use, copy, modify and distribute this 
+software and it's documentation for any purpose and without fee provided
+that the above copyright notice appears in all copies and that the above 
+copyright notice and this permission notice appear in all supporting 
+documentation. This software is provided "as is" and without expressed or 
+implied warranty.

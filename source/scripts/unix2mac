@@ -1,0 +1,40 @@
+#!/bin/sh
+# $Id: unix2mac,v 1.1 1999/03/08 15:28:41 js Exp $
+
+prog=`basename $0`
+tmp=/tmp/$prog.$$
+
+trap 'rm -f $tmp' 0 1
+
+case $# in
+	0)	;;
+	1)	if cp $1 $tmp 2> /dev/null; then :; else echo "$prog: could not open $1"; exit 1; fi
+		exec < $tmp > $1
+		;;
+	2)	if cp $1 $tmp 2> /dev/null; then :; else echo "$prog: could not open $1"; exit 1; fi
+		exec < $tmp > $2
+		;;
+	*)	echo "Usage: $prog [infile] [outfile]"
+		exit 1
+		;;
+esac
+
+case $prog in
+	mac2unix)	tr '\015' '\012'
+			;;
+	unix2mac)	tr '\012' '\015'
+			;;
+	dos2unix)	sed -e 's/$//g'
+			;;
+	unix2dos)	sed -e 's/$//g'
+			;;
+	dos2mac)	sed -e 's/$//g' | tr '\012' '\015'
+			;;
+	mac2dos)	tr '\015' '\012' | sed -e 's/$//g'
+			;;
+	dos2dos|mac2mac|unix2unix)
+			;;
+	*)		echo 'I can only convert between Mac, Unix and DOS.  What else?'
+			exit 1
+			;;
+esac

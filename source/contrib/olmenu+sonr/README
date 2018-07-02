@@ -1,0 +1,33 @@
+	OLMenu - A menu-driven offline reader system for uqwk
+
+Thanks for using OLMenu!
+
+OLMenu will simplify the use of uqwk for handling mail and news by 
+allowing individual and system users to configure and execute uqwk from 
+an easy-to-use menu.
+
+If you are installing OLMenu for personal use, unzip the olmenu.zip file
+in your $HOME directory. Enter "olmenu" without the quotes to start OLMenu.
+Read olmenu.howto for information about running OLMenu (may be accessed
+while running olmenu by entering h from any menu).
+
+If you are installing OLMenu on a system for multiple users, unzip 
+the olmenu.zip file in a convenient location, then read olmenu.setup 
+for instructions on setting up OLMenu on a system.
+
+Also included in the package is SONR - Simple Offline News/mail Reader. 
+SONR is a simplified menu-based script for SOUP format packets only which
+is fast and efficient if no configuration capabilities are required by the 
+users. See the readme.sonr file in sonr101.zip for more details.
+
+The latest versions of OLMenu and SONR are always available via anonymous 
+ftp from: america.net in the /pub/users/kgresham/ directory.
+
+Questions, suggestions and bug reports may be sent to:
+
+kgresham@america.net
+
+Thanks, and enjoy OLMenu!
+
+Ken Gresham
+

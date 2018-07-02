@@ -1,0 +1,23 @@
+				$Id: README.Typhoon,v 1.1 1999/08/29 07:49:41 js Exp $
+
+
+There is a known problem with the Typhoon news server, at least in
+versions < 1.2.1.  Version 1.2.2 is claimed to fix it.
+
+The problem is that Typhoon reports existing groups as nonexistent; i.e.
+in an NNTP transacton, the following would typically happen:
+
+	$ telnet typhoon.news.server nntp
+	200 typhoon.news.server Typhoon v.1.2.1 ready (posting ok).
+	GROUP news.groups
+	411 No such group news.groups
+
+This is reported to be happen only under certain circumstances, in
+particular when a server is "chained" to a particular news server.
+
+If this bug bites you, please inform your news server's administrator.
+Updates to Typhoon that are claimed to fix this bug can be found at:
+	<http://www.bcandid.com/download/>
+When possible, I (Jeroen Scheerder <js@cwi.nl>) would like to hear
+the details of the configuration that's causing the problem; i.e.
+the Typhoon version number, and whether chaining is indeed on.

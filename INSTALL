@@ -1,0 +1,69 @@
+				$Id: INSTALL,v 1.6 1999/04/20 16:36:14 js Exp $
+
+INSTALLING UQWK
+
+
+0.  Get the uqwk distribution somewhere, and extract the archive
+    wherever you like it to be.
+
+    Example:
+
+      $ cd /usr/local/src
+      $ lynx -dump http://www.xs4all.nl/%7Ejs/warez/uqwk.tar.gz | gtar zxf -
+
+
+1.  Go to the uqwk distribution directory.
+
+    Example:
+
+      $ cd $HOME/src/uqwk20
+
+
+2.  Use `configure' to prepare for compilation.
+    Use configure's `--help' option to check for available options.
+
+    Example 0 -- getting help from configure:
+
+      $ ./configure --help
+
+    Example 1 -- using default install locations and options:
+
+      $ ./configure
+
+    Example 2 -- nstalling in $HOME, specifying site config file,
+    replacing broken system regex stuff, and disabling scoring:
+
+      $ ./configure --with-prefix=$HOME --with-regex=../gnu-regex-0.12	\
+                    --with-config=config-mysite.h --disable-scores
+
+    After running configure a Makefile will be set up, ready to run.
+
+    CAVEAT: The supported additional/replacing libs (regex, gnksa, ...)
+            may not have been made into a library.  In that case,
+            you can either
+            - add the objects (i.e. regexpath/regex.o) to the Makefile
+              line for the `uqwk' target
+            - create the library, for example:
+                cd regexpath
+                ar cq libregex.a regex.o
+                ranlib libregex.a           # Not needed on most Unices
+
+3.  Make (compile) the software.
+
+    Example:
+
+      $	make
+
+    If this doesn't work you may have to twiddle with the Makefile,
+    or, heaven forbid, the actual source code.  Take good notice of
+    error and warning messages; the C compiler is your friend. :-)
+
+
+4.  Install the software.
+
+    Example:
+
+      $ make install
+
+
+5.  There is no step [5].  Fooled you!

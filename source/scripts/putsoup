@@ -1,0 +1,20 @@
+#!/bin/sh
+# $Id: putsoup,v 1.1 1999/03/08 15:28:40 js Exp $
+
+prg=`basename $0`
+rf=reply.zip; cd $UQ_HOME_DIR
+
+if [ ! -f $rf ]; then
+  echo "$prg: no reply packet found"                  >&2
+  exit 1
+fi
+
+unzip -ju $rf                                 2>/dev/null
+
+if uqwk -m -n +L -RREPLIES
+then
+  echo "$prg: fatal uqwk error, proceed with caution" >&2
+fi
+
+echo "Done. If all went well, $rf can safely be deleted."
+rm -i $rf

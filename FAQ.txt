@@ -1,54 +1,65 @@
+$Id: FAQ,v 1.3 1999/04/14 15:15:09 js Exp $
+
+
 Frequently-Asked Questions about uqwk:
 ________________________________________________________________________
 
-uqwk creates files called control.dat, messages.dat, and *.ndx.  How do
-I make a QWK packet from those files?
+> uqwk creates files called control.dat, messages.dat, and *.ndx.  How
+> do I make a QWK packet from those files?
 
-A QWK packet is just a ZIP archive of those files.  So a command like
-"zip bbs.qwk control.dat messages.dat *.ndx" will create the QWK packet.
-If you don't have zip on your Unix system, contact your system
-administrator, or download those files and ZIP them on your PC.
+First, you really shouldn't use QWK mode -- see below.  Trust me, you
+won't want to.
+
+Then again, if you really must for some reason: a QWK packet is just a
+ZIP archive of these files.  So a command like "zip bbs.qwk control.dat
+messages.dat *.ndx" will create the QWK packet.  If you don't have zip
+on your Unix system, contact your system administrator, or download
+those files and ZIP them on your PC.
 ________________________________________________________________________
 
-My site gets news from a news server.  Can uqwk run in such an
-environment?
+> My site gets news from a news server.  Can uqwk run in such an
+> environment?
 
-Yes.  Compile the NNTP version of uqwk:  make -f Makefile.nntp
-See the README.
+Yes.  Compile the NNTP version of uqwk: see README.
 ________________________________________________________________________
 
-uqwk collects my email just fine, but why not my news?
+> uqwk doesn't appear to do anything?
 
 The default behavior is just that.  To get uqwk to collect your news,
-you have to explicitly ask it with the +n switch.  See the man page for
-details.
+you have to explicitly ask it with the +n switch, and to get it to
+collect your mail, you have to set the "+m" switch.  See the man page
+for details.
 ________________________________________________________________________
 
-I tell uqwk to collect my news, but all I get is a bunch of empty *.ndx
-files.  What's wrong?
+> I tell uqwk to collect my news, but all I get is a bunch of empty
+> *.ndx files.  What's wrong?
 
 You may need the NNTP version of uqwk.  See the README on how to compile
 the NNTP version.  If that fails, your site may be running non-standard
 news software.  Contact your news administrator for help.
 ________________________________________________________________________
 
-Our site's mail is not in /usr/spool/mail.  Can anything be done?
-Our site's news is not in /usr/spool/news.  Can anything be done?
-Our site's active file is not in /usr/lib/news.  Can anything be done?
+> Our site's mail is not in /var/spool/mail.  Can anything be done?
+> Our site's news is not in /var/spool/news.  Can anything be done?
+> Our site's active file is not in /usr/lib/news.  Can anything be done?
 
-uqwk has runtime switches to control all these things and many more.
-See the man page for details.
+You can define your site dependencies by creating a config file
+containing the site dependencies.  Copy config-generic.h to
+config-<mysite>.h, edit config-<mysite>.h to your liking, and make sure
+Makefile contains "CONFIG=mysite".
+Furthermore, uqwk has runtime switches to control all these things and
+many more.  See the man page for details.
 ________________________________________________________________________
 
-When I use uqwk to post a follow-up, it gets posted to the wrong
-newsgroup.  What can I do?
+> When I use uqwk to post a follow-up, it gets posted to the wrong
+> newsgroup.  What can I do?
 
-Be sure you have the latest version (1.8 at this writing).  Also, see
+Be sure you have the latest version (2.0 at this writing).  Also, see
 the BUGS section in the man page.
 ________________________________________________________________________
 
-Is there any way to have uqwk create the packet files somewhere besides
-my home directory?
+> Is there any way to have uqwk create the packet files somewhere
+> besides my home directory?
 
 Yes.  Use the -H switch to specify where you want the files to be
 created.  Since uqwk will also look in this directory for the .newsrc
@@ -56,58 +67,118 @@ file, you'll probably also have to use the -N switch to tell uqwk where
 to find your .newsrc.
 ________________________________________________________________________
 
-How do I get uqwk to process a QWK reply packet?
+> How do I get uqwk to process a QWK reply packet?
 
-A QWK reply packet, usually named something.REP, is simply a ZIP archive
-of something.MSG.  Unzip the archive, and feed something.MSG to uqwk
-thusly:  uqwk -m -n -Rsomething.MSG
+Hrmpf.  Once again, don't do that.  Really; see below why not.
+
+Anyway, if you must: a QWK reply packet, usually named something.REP,
+is simply a ZIP archive of something.MSG.  Unzip the archive, and feed
+something.MSG to uqwk thusly: uqwk -m -n -Rsomething.MSG
 ________________________________________________________________________
 
-How do I get uqwk to process an HDPF reply packet?
+> How do I get uqwk to process an HDPF (SOUP) reply packet?
 
 Unzip the reply packet.  Be sure to use the -U switch of unzip or else
 the file names will be mapped to lower case and uqwk won't find them.
 Then feed the REPLIES file to uqwk thusly:  uqwk -m -n +L -RREPLIES
 ________________________________________________________________________
 
-How do I get uqwk to process a ZipNews reply packet?
+> How do I get uqwk to process a ZipNews reply packet?
 
 Unzip the reply packet.  Then tell uqwk which *directory* the reply
 files are in.  For example, if they are in your current directory,
 invoke uqwk thusly:  uqwk -m -n +z -R.
 ________________________________________________________________________
 
-I have the registered ZipNews reader, but uqwk refuses to process reply
-packets.  Why?
+> I have the registered ZipNews reader, but uqwk refuses to process
+> reply packets.  Why?
 
 Be sure to specify "packer : uqwk" in your ZipNews Reader configuration
 file.
 ________________________________________________________________________
 
-Where can I FTP the latest version of uqwk?
+> Where can I get the latest version of uqwk?
 
-ftp.gte.com:/pub/uqwk
+See <http://www.xs4all.nl/%7Ejs/warez/>.
 ________________________________________________________________________
 
-Where can I FTP reader programs?
+> Where can I FTP reader programs?
 
-Numerous QWK readers exist for DOS, Windows, and OS/2.  There are far
-too many QWK readers to list here.  Patrick Y. Lee (patlee@panix.com)
-maintains an excellent, exhaustive list which is available from
-wuarchive.wustl.edu:/systems/ibmpc/msdos/offline/qwkp9307.zip.
-A good number of readers are located in the same directory.  One popular
-DOS reader that I like is SLMR (slmr21a.zip in the same directory).
+You might want to check <news:alt.usenet.offline-reader>, and its
+FAQ.  A few candidates (remember, avoid QWK readers like the plague):
 
-Helldiver Packet Viewer (DOS):  halcyon.com:/pub/incoming/hpv101b.zip
-Usenet Offline Reader (Windows):  ftp.gte.com:/pub/unor/unor0030.zip
-ZipNews reader (DOS):  ftp.gte.com:/pub/zipnews/znr092w.zip
-Yarn (DOS, OS/2): oak.oakland.edu:/pub/msdos/offline/yarn-055.zip
+MacSOUP (Mac OS):	<http://www.inx.de/~stk/macsoup.html>
+Yarn (DOS, OS/2):	<ftp://oak.oakland.edu/pub/os2/offline/yarn-055.zip>
+Helldiver Packet Viewer (DOS):
+			<ftp://halcyon.com/pub/incoming/hpv101b.zip>
+ZipNews reader (DOS):	<ftp://ftp.gte.com/pub/zipnews/znr092w.zip>
+Usenet Offline Reader (WINDOS):
+			<ftp://ftp.gte.com/pub/unor/unor0030.zip>
+
+Note that these links may be outdated; an archie- or websearch might
+be worthwile.
 ________________________________________________________________________
 
-How can I get uqwk to work with my Waffle (Unix version) mailbox?
+> How can I get uqwk to work with my Waffle (Unix version) mailbox?
 
 Try changing the ^A's in the mailbox file to newlines:
 
         tr '\001' '\012' <waffle-mailbox >tmp-mailbox
-        uqwk -ftmp-mailbox
+        uqwk +m -ftmp-mailbox
+________________________________________________________________________
+
+> I've made score files, but with no noticable effects.  Now what?
+
+Check to see if scoring support was compiled in:
+
+	uqwk -p
+
+uqwk should identify itself as a scoring version.  Also, verify that
+the score files are located in the proper directory.  If all is as it
+should be, and it still doesn't work, try something *very* simple.
+
+For example, put a line "-666 Newsgroups: ," in your "global" file.
+Maek sure the "global" file is in the proper location (usually in the
+subdir ".uqwk" of your home directory).
+No run uqwk in "read only" mode (so you won't lose stuff):
+
+	uqwk +r +n
+
+uqwk should start reporting "+(global scoring)", and for all your
+subscribed groups it will report "mm kept, nn killed".  If not, check
+the man page carefully.
+________________________________________________________________________
+
+> I've configured uqwk to use the QWK format, but it keeps nagging me,
+> telling me I shouldn't.  Why?
+
+The QWK format imposes certain restrictions on messages that are
+irreconcilable with basic Usenet (and even mail, but less urgently
+there) requirements.  Consequently, when using QWK, articles get
+severely damaged, and you'll be causing damage to the newsgroups you
+post to -- and you'll be aggravating a lot of people.
+
+So, just don't do that; getting another newsreader that can handle SOUP
+packets is by far preferrable to messing up things with QWK-damaged
+contributions.
+
+Either that, or put on your best asbestos suit.  You'll need it to cope
+with the flames you're bound to provoke.
+________________________________________________________________________
+
+> I get error and warning messages when I try to process reply packets.
+> What's all this, then?
+
+uqwk can be set up to do basic sanity checking on articles before they
+are posted to Usenet; if they will be posted to Usenet, they should be
+valid Usenet articles.
+
+Much problems have been caused (and are still being caused) by software
+(and people inadvertently messing up things they shouldn't be able to).
+This can have all kinds of unwanted effects; uqwk is helping you to
+prevent these bad things from happening.
+
+If you really insist on posting messages that violate the requirements
+for Usenet messages, you can. you can tell uqwk to post failing messages
+anyway.  The man page explains how to acomplish this.
 ________________________________________________________________________

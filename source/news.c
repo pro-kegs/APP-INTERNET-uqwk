@@ -1,4 +1,16 @@
+/*
+ * $Id: news.c,v 1.12 2001/10/25 10:23:35 js Exp $
+ */
+
 #include <stdio.h>
+
+/* fill the gaps of stupid SunOS stdio */
+#ifndef SEEK_SET
+	#define SEEK_SET        0
+	#define SEEK_CUR        1
+	#define SEEK_END        2
+#endif
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <string.h>
@@ -6,123 +18,161 @@
 
 #define MAXFILENAME 128
 
-#ifdef SERVER
+#ifdef NNTP
 #include "nntp.h"
-extern FILE *getactive_nntp(); 
-extern void group_nntp();
+/* extern FILE *getactive_nntp(); */
 extern FILE *nntpopen();
+extern int nntp_get();
+#endif
+
+#ifdef SCORES
+extern int read_score_file(char *);
+extern int free_group_score();
+extern int Kill(FILE *);
 #endif
 
 /*
  *  All sorts of stuff to do news processing
  */
 
-DoNews ()
+int DoNews ()
 /*
- *  Collect unread news into QWK packet
+ *  Collect unread news into a packet
  */
 {
+#if defined(NNTP_FULL_ACTIVE)
 	char active_name[MAXFILENAME];
-	struct act_ent *ap;
+#endif
 	struct nrc_ent *np;
 	struct ng_ent *ngp;
+	int	ret;
+#ifdef SCORES
+	int	has_score = 0;
+#endif
 
 	/* Open ZipNews files */
-	if (zip_mode)
-	{
-		if (!OpenZipFiles()) return (0);
+	if (zip_mode) {
+		if ((ret=OpenZipFiles())<=0) {
+			fprintf(stderr,"%s: can't open zipfiles\n", progname);
+			return(ret);
+		}
 	}
 
 	/* Read .newsrc file */
-	if (!ReadNewsrc()) return (0);
+	if ((ret=ReadNewsrc()) < 0) {
+		fprintf(stderr,"%s: can't read newsrc file\n", progname);
+		return(ret);
+	}
 
+#if !defined(NNTP) || defined(NNTP_FULL_ACTIVE)
 	/* And active file */
-	if (!ReadActive()) return (0);
+	if ((ret=ReadActive()) < 0) {
+		fprintf(stderr,"%s: can't read active file\n", progname);
+		return(ret);
+	}
+#endif
 
 	/* Handle selection mode */
-	if (sel_mode)
-	{
-		DoSelect ();
-#ifdef SERVER
-		sprintf(active_name,"%s/rrnact.%d",TEMPDIR,getpid());
+	if (sel_mode) {
+		if((ret=DoSelect())!=1) return(ret);
+#if defined(NNTP_FULL_ACTIVE)
+		sprintf(active_name,"/tmp/rrnact.%d",getpid());
 		unlink(active_name);
 #endif
 		/* ZipNews "join" file */
-		if (zip_mode)
-		{
-			WriteJoin ();
+		if (zip_mode) {
+			if((ret=WriteJoin())!=1) return(ret);
 			fclose (nws_fd);
 			fclose (idx_fd);
 		}
 		return (0);
 	}
 
+#ifdef SCORES
+        if (do_kills) {
+	   if(read_score_file (GLOBAL_SCORE_FILE))
+		   printf("(global scoring)\n");
+	   else
+		   printf("(no global scoring)\n");
+	}
+#endif
+
 	/* Use .newsrc or desire newsgroup file? */
-	if (ng_list == NULL)
-	{
+	if (ng_list == NULL) {
 		/*
 		 *  No desired ng file, use newsrc
 		 */
 		np = nrc_list;
-		while (np != NULL)
-		{
+		while (np != NULL) {
 			/* Check if too many blocks already */
-			if ( (blk_cnt >= max_blks) && (max_blks > 0) )
-			{
-#ifdef SERVER
-				sprintf(active_name,"%s/rrnact.%d",TEMPDIR,getpid());
+			if ( (blk_cnt >= max_blks) && (max_blks > 0) ) {
+#ifdef NNTP_FULL_ACTIVE
+				sprintf(active_name,"/tmp/rrnact.%d",getpid());
 				unlink(active_name);
 #endif
 				/* ZipNews "join" file */
-				if (zip_mode)
-				{
-					WriteJoin ();
+				if (zip_mode) {
+					if((ret=WriteJoin())!=1) return(ret);
 					fclose (nws_fd);
 					fclose (idx_fd);
 				}
 				return (0);
 			}
 
-			if (np->subscribed)
-			{
-				/* Lookup group in active file */
-				ap = FindActive (np->name);
-
+			if (np->subscribed) {
+#ifdef SCORES
+			        if (do_kills) {
+				    group_kill_thresh = kill_thresh;
+				    has_score = read_score_file (np->name);
+				}
+#endif
 				/* Do this group */
-				DoGroup (np, ap);
+				ret=DoGroup(np);
+#ifdef SCORES
+			        if (do_kills && has_score) free_group_score();
+#endif
+				switch(ret) {
+					case -1:
+						fprintf(stderr,"%s: can't entirely do group %s\n", progname, np->name);
+						return(0);
+						break;
+					case 0:
+						break;
+					case 1:
+						break;
+					default:
+						fprintf(stderr,"%s: can't do group %s\n", progname, np->name);
+						return(ret);
+						break;
+				}
+
 			}
 			np = np->next;
 		}
-#ifdef SERVER
-		sprintf(active_name,"%s/rrnact.%d",TEMPDIR,getpid());
+#ifdef NNTP_FULL_ACTIVE
+		sprintf(active_name,"/tmp/rrnact.%d",getpid());
 		unlink(active_name);
 #endif
 		/* ZipNews "join" file */
-		if (zip_mode)
-		{
-			WriteJoin ();
+		if (zip_mode) {
+			if((ret=WriteJoin())!=1) return(ret);
 			fclose (nws_fd);
 			fclose (idx_fd);
 		}
-	}
-	else
-	{
+	} else {
 		/*
 		 *  Read desired ng file for groups
 		 */
-		for (ngp=ng_list; ngp!=NULL; ngp=ngp->next)
-		{
+		for (ngp=ng_list; ngp!=NULL; ngp=ngp->next) {
 			/* Check if too many blocks already */
-			if ( (blk_cnt >= max_blks) && (max_blks > 0) )
-			{
-#ifdef SERVER
-				sprintf(active_name,"%s/rrnact.%d",TEMPDIR,getpid());
+			if ( (blk_cnt >= max_blks) && (max_blks > 0) ) {
+#ifdef NNTP_FULL_ACTIVE
+				sprintf(active_name,"/tmp/rrnact.%d",getpid());
 				unlink(active_name);
 #endif
 				/* ZipNews "join" file */
-				if (zip_mode)
-				{
-					WriteJoin ();
+				if (zip_mode) {
+					if((ret=WriteJoin())!=1) return(ret);
 					fclose (nws_fd);
 					fclose (idx_fd);
 				}
@@ -130,33 +180,45 @@ DoNews ()
 			}
 
 			/* Find .newsrc entry, book if none */
-			for (np=nrc_list; np!=NULL; np=np->next)
-			{
+			for (np=nrc_list; np!=NULL; np=np->next) {
 				if (!strcmp (ngp->name, np->name)) break;
 			}
 
-			if (np == NULL)
-			{
+			if (np == NULL) {
 				fprintf (stderr, "%s: %s not in .newsrc\n",
 						progname, ngp->name);
-			}
-			else
-			{
-				/* Lookup group in active file */
-				ap = FindActive (np->name);
-
+			} else {
+#ifdef SCORES
+			        if (do_kills) read_score_file (np->name);
+#endif
 				/* Do this group */
-				DoGroup (np, ap);
+				ret=DoGroup(np);
+#ifdef SCORES
+			        if (do_kills) free_group_score();
+#endif
+				switch(ret !=1) {
+					case -1:
+						fprintf(stderr,"%s: can't entirely do group %s\n", progname, np->name);
+						return(0);
+						break;
+					case 0:
+						break;
+					case 1:
+						break;
+					default:
+						fprintf(stderr,"%s: can't do group %s\n", progname, np->name);
+						return(ret);
+						break;
+				}
 			}
 		}
-#ifdef SERVER
-		sprintf(active_name,"%s/rrnact.%d",TEMPDIR,getpid());
+#ifdef NNTP_FULL_ACTIVE
+		sprintf(active_name,"/tmp/rrnact.%d",getpid());
 		unlink(active_name);
 #endif
 		/* ZipNews "join" file */
-		if (zip_mode)
-		{
-			WriteJoin ();
+		if (zip_mode) {
+			if((ret=WriteJoin())!=1) return(ret);
 			fclose (nws_fd);
 			fclose (idx_fd);
 		}
@@ -173,6 +235,7 @@ int ReadNewsrc()
 	char group_name[PATH_LEN];
 	struct nrc_ent *np, *lnp;
 	int i, n, c;
+	char *buf;
 
 	/* lnp points to last entry */
 	lnp = NULL;
@@ -180,22 +243,23 @@ int ReadNewsrc()
 	/* Don't bother if we've alread read it */
 	if (nrc_list != NULL) return (1);
 
+	/* Allocate a buffer for reading */
+	if((buf = (char *) malloc(BUF_LEN)) == NULL)
+		OutOfMemory();
+
 	/* Open it */
-	if (NULL == (nrc_fd = fopen (nrc_file, "r")))
-	{
+	if (NULL == (nrc_fd = fopen (nrc_file, "r"))) {
 		fprintf (stderr, "%s: can't open %s\n", progname, nrc_file);
-		return (0);
+		return(-1);
 	}
 
 	/* Read through */
-	while (NULL != Fgets (buf, BUF_LEN, nrc_fd))
-	{
+	while (NULL != Fgets (buf, BUF_LEN, nrc_fd)) {
 		/* Allocate a new nrc entry */
 		np = (struct nrc_ent *) malloc (sizeof (struct nrc_ent));
 		if (np == NULL) OutOfMemory();
 
-		if (waf_mode)
-		{
+		if (waf_mode) {
 			/* Waffle is easy */
 			sscanf (buf, "%s %d", group_name, &n);
 			np->subscribed = 1;
@@ -207,28 +271,25 @@ int ReadNewsrc()
 			np->sub->lo = 0;
 			np->sub->hi = n;
 			np->sub->next = NULL;
-		}
-		else  /* Regular Unix-style .newsrc */
-		{
+		} else { /* Regular Unix-style .newsrc */
 			/* Assume not subscribed */
 			np->subscribed = 0;
+			/* Avoid bus error on missing ! or : */
+			np->sub = 0;
 
 			/* Parse group name */
 			n = strlen (buf);
-			for (i=0; i<n; i++)
-			{
+			for (i=0; i<n; i++) {
 				/* Some .newsrc's don't have a space after the
-			 	   newsgroup name, so kludge it like this */
-				if (buf[i] == ':')
-				{
+			   newsgroup name, so kludge it like this */
+				if (buf[i] == ':') {
 					np->subscribed = 1;
 					buf[i] = ' ';
 
 					/* Parse subscription list */
 					np->sub = SubList (&buf[i+1]);
 				}
-				if (buf[i] == '!')
-				{
+				if (buf[i] == '!') {
 					np->subscribed = 0;
 					buf[i] = ' ';
 
@@ -247,13 +308,10 @@ int ReadNewsrc()
 		np->next = NULL;
 
 		/* Add to nrc list */
-		if (lnp == NULL)
-		{
+		if (lnp == NULL) {
 			/* First one */
 			nrc_list = np;
-		}
-		else
-		{
+		} else {
 			/* Add to end */
 			lnp->next = np;
 		}
@@ -263,20 +321,17 @@ int ReadNewsrc()
 	/* Walk through the nrc list, assign conference numbers */
 	np = nrc_list;
 	c = 0;
-	while (np != NULL)
-	{
-		if (np->subscribed)
-		{
+	while (np != NULL) {
+		if (np->subscribed) {
 			np->conf = c;
 			c++;
-		}
-		else
-		{
+		} else {
 			np->conf = (-1);
 		}
 		np = np->next;
 	}
 
+	free(buf);
 	fclose (nrc_fd);
 	return (1);
 }
@@ -286,31 +341,28 @@ int ReadActive()
  *  Read active file
  */
 {
-	char group_name[PATH_LEN];
 	struct act_ent *ap;
+	char group_name[PATH_LEN];
 
 	/* Don't bother if it's already here */
 	if (act_list != NULL) return (1);
 
-#ifdef SERVER
-	/* retrieve active file from news server */
-	if (NULL == (act_fd = getactive_nntp()))
-	{
+#if !defined(NNTP)
+	/* Open the active file */
+	if (NULL == (act_fd = fopen (act_file, "r"))) {
 		fprintf (stderr, "%s: can't open %s\n", progname, act_file);
-		return (0);
+		return(-1);
 	}
 #else
-	/* Open the active file */
-	if (NULL == (act_fd = fopen (act_file, "rb")))
-	{
-		fprintf (stderr, "%s: can't open %s\n", progname, act_file);
-		return (0);
+	/* Retrieve active file from news server */
+	if (NULL == (act_fd = (FILE *)getactive_nntp())) {
+		fprintf (stderr, "%s: can't get active file\n", progname);
+		return (-1);
 	}
 #endif
 
-	/* Read through it */
-	while (NULL != Fgets (buf, BUF_LEN, act_fd))
-	{
+	/* Read through the full active file */
+	while (NULL != Fgets (buf, BUF_LEN, act_fd)) {
 		/* Get new act entry */
 		ap = (struct act_ent *) malloc (sizeof (struct act_ent));
 		if (ap == NULL) OutOfMemory();
@@ -326,6 +378,7 @@ int ReadActive()
 		act_list = ap;
 	}
 	fclose (act_fd);
+
 	return (1);
 }
 
@@ -336,28 +389,80 @@ char *c;
  */
 {
 	struct act_ent *ap;
+#ifdef NNTP
+	int dummy;
+#endif
 
+#if defined(NNTP) && !defined(NNTP_FULL_ACTIVE)
+	/* Ask server about group */
+	sprintf(buf,"GROUP %s", c);
+	put_server(buf);
+	nntp_get(buf, sizeof(buf));
+	if (*buf != CHAR_OK) {		/* and then see if that's ok */
+		if(atoi(buf) == ERR_NOGROUP) {
+			fprintf(stderr, "%s: %s does not exist (server said: %s)\n",
+			        progname, c, buf);
+		} else {
+			fprintf(stderr, "%s: `GROUP %s' server response: %s\n",
+			        progname, c, buf);
+		}
+	} else {
+		/* Get new act entry */
+		ap = (struct act_ent *) malloc (sizeof (struct act_ent));
+		if (ap == NULL) OutOfMemory();
+
+		/* Parse name, message numbers; `buf' contains a server response */
+		sscanf (buf, "%d %d %d %d", &dummy, &dummy, &ap->lo, &ap->hi);
+		if((ap->name = (char *) malloc (1+strlen(c))) == NULL) OutOfMemory();;
+		strcpy (ap->name, c);
+
+		/* Add to list */
+/*	No need to -- better not to cache, and always do a fresh GROUP
+		ap->next = act_list;
+		act_list = ap;						*/
+
+		return(ap);
+	}
+#else	/* Not in NNTP mode, or in NNTP_FULL_ACTIVE mode */
 	ap = act_list;
-	while (NULL != ap)
-	{
+	while (NULL != ap) {
 		if (!strcmp (c, ap->name)) return (ap);
 		ap = ap->next;
 	}
+#endif
+
 	return (NULL);
 }
 
-DoGroup (np, ap)
+int DoGroup (np)
 struct nrc_ent *np;
-struct act_ent *ap;
 /*
  *  Process given group
  */
 {
+	struct act_ent *ap;
 	char news_path[PATH_LEN];
 	int i, n;
 	struct conf_ent *cp;
+#ifdef SCORES
+        int nArticles = 0;
+        int nKills = 0;
+#endif
 
-	printf ("%s: %s\n", progname, np->name);
+	printf ("%s", np->name);
+#ifdef SCORES
+        fflush(stdout);
+#endif
+
+	/* Lookup group in active file */
+	ap = FindActive (np->name);
+	/* If the group doesn't exist (that is, doesn't appear in
+	   the active file), do nothing else */
+	if (ap == NULL) {
+	        printf (": no such group\n");
+		return 0;
+	}
+
 
 	/* Make a new conference with this name */
 	cp = NewConference (np->name, np->conf);
@@ -365,9 +470,11 @@ struct act_ent *ap;
 	/* Remember no ZipNews index entry yet */
 	if (zip_mode) zip_flag = 0;
 
-#ifdef SERVER
+#ifdef NNTP
+	#ifdef NNTP_FULL_ACTIVE
 	/* select group name from news server */
 	group_nntp(np->name);
+	#endif
 #else
 	/* Construct path name for articles in this group */
 	strcpy (news_path, news_dir);
@@ -378,47 +485,57 @@ struct act_ent *ap;
 	for (i=0; i<n; i++) if (news_path[i] == '.') news_path[i] = '/';
 #endif
 
-	/* If the group doesn't exist (that is, doesn't appear in
-	   the active file), do nothing else */
-	if (ap == NULL)
-	{
-		if (!slnp_mode && !zip_mode && !sum_mode) NdxClose (ndx_fd);
-		if (slnp_mode) MsgClose (msg_fd);
-		return (0);
-	}
-
 	/* Fix up the subscription list */
 	np->sub = FixSub (np->sub, ap->lo, ap->hi);
 
 	/* Look through unread articles */
-	for (i=ap->lo; i<=ap->hi; i++)
-	{
+	for (i=ap->lo; i<=ap->hi; i++) {
 		/* Check max block count */
-		if ( (blk_cnt >= max_blks) && (max_blks > 0) )
-		{
+		if ( (blk_cnt >= max_blks) && (max_blks > 0) ) {
 			if (!slnp_mode && !zip_mode && !sum_mode)
 							NdxClose (ndx_fd);
 			if (slnp_mode) MsgClose (msg_fd);
-			return (0);
+#ifdef SCORES
+			if (do_kills)
+       printf(" %d articles obtained, %d killed", nArticles, nKills);
+#endif
+			printf("\n");
+			return (-1);
 		}
 
 		/* Process this article */
-		if (!IsRead (i, np->sub))
-		{
+		if (!IsRead (i, np->sub)) {
 			/* Mark as read */
 			np->sub = MarkRead (i, np->sub);
 
-			/* Process the article */
-			DoArticle (news_path, i, np, cp);
+/* Process the article */
+#ifdef SCORES
+			n=DoArticle(news_path, i, np, cp);
+			switch(n){
+				case 1:  ++nArticles; break;
+				case -1: ++nKills; break;
+				case 0:  continue;
+				default: return(n);
+			}
+#else  /* ndef SCORES */
+			if((n=DoArticle(news_path, i, np, cp))!=1)
+				return(n);
+#endif /* SCORES */
 		}
 	}
 	if (!slnp_mode && !zip_mode && !sum_mode) NdxClose (ndx_fd);
 	if (slnp_mode) MsgClose (msg_fd);
 
+#ifdef SCORES
+	if (do_kills)
+       printf(" %d articles obtained, %d killed", nArticles, nKills);
+#endif /* SCORES */
+	printf("\n");
+
 	return (1);
 }
 
-DoArticle (news_path, artnum, np, cp)
+int DoArticle (news_path, artnum, np, cp)
 char *news_path;
 int artnum;
 struct nrc_ent *np;
@@ -432,43 +549,71 @@ struct conf_ent *cp;
 	FILE *art_fd;
 	char art_file[PATH_LEN];
 
-#ifdef SERVER
+#ifdef NNTP
 	/* retrieve article from news server */
-/*	printf("retrieving article %d\n",artnum); */
 	art_fd = nntpopen(artnum, GET_ARTICLE);
-	if (art_fd == NULL) return (0);
+	if (art_fd == NULL){
+#ifdef DEBUG
+		char *s = ignore_0fd?"(ignored)":"(stop)";
+		fprintf( stderr, "%s: couldn't nntpopen article#%d %s\n", progname, artnum, s );
+#endif
+		return ignore_0fd ? 1 : 0;
+	}
 
-	/* Construct article's file name */ 
-    	sprintf(art_file,"%s/rrn%ld.%ld", TEMPDIR, (long) artnum, getpid());
+	/* Construct article's file name */
+	sprintf(art_file,"/tmp/rrn%ld.%ld", (long) artnum, (long) getpid());
 #else
-	/* Construct article's file name */ 
+	/* Construct article's file name */
 	sprintf (art_file, "%s%d", news_path, artnum);
 
 	/* Forget it if we can't open the article */
-	if (NULL == (art_fd = fopen (art_file, "rb"))) return (0);
+	if (NULL == (art_fd = fopen (art_file, "r"))) {
+#ifdef DEBUG
+		fprintf(stderr,"%s: couldn't read article#%d\n", progname, artnum);
+#endif
+		return 0;
+	}
 
 #endif
 	/* stat() the article to get file size */
-	if (0 != stat (art_file, &stat_buf))
-	{
+	if (0 != stat (art_file, &stat_buf)) {
 		fclose (art_fd);
-#ifdef SERVER
+#ifdef DEBUG
+		fprintf(stderr,"%s: couldn't stat article %d\n", progname, artnum);
+#endif
+#ifdef NNTP
 		unlink (art_file);
 #endif
-		return (0);
+		return 0;
 	}
 
 	end_offset = stat_buf.st_size;
 
 	/* Skip empty articles */
-	if (end_offset == 0)
-	{
+	if (end_offset == 0) {
 		fclose (art_fd);
-#ifdef SERVER
+#ifdef NNTP
 		unlink (art_file);
+#endif
+#ifdef DEBUG
+		fprintf(stderr,"%s: empty article\n", progname);
 #endif
 		return (0);
 	}
+
+#ifdef SCORES
+        if (do_kills) {
+	        if (Kill(art_fd) < group_kill_thresh) {
+		        fclose (art_fd);
+#ifdef NNTP
+		        unlink (art_file);
+#endif
+		        return (-1);
+		} else {
+		        fseek (art_fd, 0L, SEEK_SET);
+		}
+	}
+#endif
 
 	/* We now assume the article is for real, so we can
 	   bump this conference's article count */
@@ -478,51 +623,48 @@ struct conf_ent *cp;
 	if (xrf_mode) DoXref (art_fd, end_offset);
 
 	/* Do SLNP stuff */
-	if (slnp_mode)
-	{
-		SLNPArticle (art_fd, end_offset);
+	if (slnp_mode) {
+		if((n=SLNPArticle(art_fd, end_offset))!=1) return(n);
 		fclose (art_fd);
-#ifdef SERVER
+#ifdef NNTP
 		unlink(art_file);
 #endif
 		return (1);
 	}
 
 	/* Do ZipNews stuff */
-	if (zip_mode)
-	{
-		ZipArticle (art_fd, end_offset, np);
+	if (zip_mode) {
+		n=ZipArticle(art_fd, end_offset, np);
 		fclose (art_fd);
-#ifdef SERVER
+#ifdef NNTP
 		unlink(art_file);
 #endif
-		return (1);
+		return (n);
 	}
 
 	/* Do summary stuff */
-	if (sum_mode)
-	{
+	if (sum_mode) {
 		SumArticle (art_fd, artnum, end_offset, np);
 		fclose (art_fd);
-#ifdef SERVER
+#ifdef NNTP
 		unlink(art_file);
 #endif
 		return (1);
 	}
 
 	/* Write the index file entry */
-	inttoms (blk_cnt, ndx);
+	inttoms (blk_cnt, (unsigned char *)ndx);
 	ndx[4] = np->conf;
-	fwrite (ndx, 5, 1, ndx_fd);
+	if(fwrite(ndx, 5, 1, ndx_fd)!=1) return(-2);
 
-	Spaces (&hdr, 128);
+	Spaces ((char *)&hdr, 128);
 
 	/* Fill in some header fields */
 	hdr.status = QWK_PUBLIC;
 	PadNum (msg_cnt, hdr.number, 7);
 	Spaces (hdr.password, 12);
 	Spaces (hdr.refer, 8);
-	hdr.flag = QWK_ACT_FLAG;
+	hdr.flag = (char) QWK_ACT_FLAG;
 	IntNum (np->conf, hdr.conference);
 	IntNum (msg_cnt+1, hdr.msg_num);
 	hdr.tag = ' ';
@@ -532,40 +674,33 @@ struct conf_ent *cp;
 
 	/* Process header lines */
 	eof = Fgets (buf, BUF_LEN, art_fd);
-	while ( (0 != strlen(buf)) && (eof != NULL) )
-	{
-		if (!strncmp (buf, "Date: ", 6))
-		{
+	while ( (0 != strlen(buf)) && (eof != NULL) ) {
+		if (!strncmp (buf, "Date: ", 6)) {
 			ParseDate (&buf[6], &hdr);
-		}
-		else if (!strncmp (buf, "Subject: ", 9))
-		{
+		} else if (!strncmp (buf, "Subject: ", 9)) {
 			PadString (&buf[9], hdr.subject, 25);
-		}
-		else if (!strncmp (buf, "From: ", 6))
-		{
+		} else if (!strncmp (buf, "From: ", 6)) {
 			PadString (ParseFrom(&buf[6]), hdr.from, 25);
 		}
-
 		eof = Fgets (buf, BUF_LEN, art_fd);
 	}
 
 	txt_offset = ftell (art_fd);
 
 	/* Compute block count */
-	if (inc_hdrs)
-	{
+	if (inc_hdrs) {
 		PadNum (2+end_offset/128, hdr.blocks, 6);
 		blk_cnt += 1+end_offset/128;
-	}
-	else
-	{
+	} else {
 		PadNum (2+(end_offset-txt_offset)/128, hdr.blocks, 6);
 		blk_cnt += 1+(end_offset-txt_offset)/128;
 	}
 
 	/* Write the message header */
-	fwrite (&hdr, 128, 1, msg_fd);
+	if((out_bytes =fwrite(&hdr, 128, 1, msg_fd)) != 1 ) {
+		return(-2);
+	}
+
 	blk_cnt++;
 
 	/* Now write the article's text */
@@ -575,53 +710,99 @@ struct conf_ent *cp;
 	while (NULL != Fgets (buf, BUF_LEN, art_fd))
 	{
 		n = strlen (buf);
-		fwrite (buf, n, 1, msg_fd);
+		if(fwrite(buf, 1, n, msg_fd)!=n) {
+			return(-2);
+		}
 		out_bytes += n;
 
-		if (n < BUF_LEN-1)
-		{
-			fputc (QWK_EOL, msg_fd);
+		if (n < BUF_LEN-1) {
+			if(putc(QWK_EOL, msg_fd) == EOF) {
+				 return(-2);
+			}
 			out_bytes++;
 		}
 	}
 
 	/* Pad block as necessary */
 	n = out_bytes % 128;
-	for (;n<128;n++) fputc (' ', msg_fd);
+	for (;n<128;n++) putc (' ', msg_fd);
 
 	fclose (art_fd);
-#ifdef SERVER
+#ifdef NNTP
 	unlink(art_file);
 #endif
 
 	return (1);
 }
 
-SLNPArticle (art_fd, bytes)
+int SLNPArticle (art_fd, bytes)
 FILE *art_fd;
 int bytes;
 /*
  *  Convert an article to SLNP format
  */
 {
+#if 0
         int c;
 
         /* Write "rnews" line */
-        fprintf (msg_fd, "#! rnews %d\n", bytes);
+        if(fprintf(msg_fd, "#! rnews %d\n", bytes) < 0)
+		return -1;
 
 	/* Maintain block count */
 	blk_cnt += (bytes + 64) / 128;
 
         /* Copy bytes */
-        while (bytes--)
-        {
-                c = fgetc (art_fd);
-                fputc ((0xff & c), msg_fd);
+        while (bytes--) {
+                if( (c = getc (art_fd))==EOF) return(0);
+		if( putc((0xff & c), msg_fd)==EOF) return(-1);
         }
-        return (1);
+        return 1;
+#endif
+	int	c, index = bytes;
+	char	*buf;
+
+	if((buf = (char *)malloc(bytes)) == NULL ) {
+		fprintf(stderr, "could not allocate %i bytes for article\n", bytes);
+		return -1;
+	}
+	if(fread(buf, 1, bytes, art_fd) != bytes) {
+		fprintf(stderr, "could not fread() %i bytes from article\n", bytes);
+		free(buf);
+		return -1;
+	}
+
+        /* Determine proper index (may have to correct for \r\n lines) */
+        for (c = 0; c < bytes-1; c++)
+		if(buf[c] == '\r' && buf[c+1] == '\n')
+			/* linetermination counts for
+			   (and will be) a single byte! */
+			index--;
+
+       /* Write "rnews" line */
+        if(fprintf(msg_fd, "#! rnews %d\n", index) < 0) {
+		free(buf);
+		return -1;
+	}
+
+        /* Copy bytes; be sure to enforce '\n' line termination */
+        for (c = 0; c < bytes; c++)
+		if(buf[c] != '\r' || (c >= bytes-1) || buf[c+1] != '\n')
+			/* don't write the \r, whenever encountering \r\n */
+			if( putc((0xff & buf[c]), msg_fd) == EOF) {
+				free(buf);
+				return -1;
+			}
+
+	free(buf);
+
+	/* Maintain block count */
+	blk_cnt += (bytes + 64) / 128;
+
+        return 1;
 }
 
-ZipArticle (art_fd, bytes, np)
+int ZipArticle (art_fd, bytes, np)
 FILE *art_fd;
 int bytes;
 struct nrc_ent *np;
@@ -633,15 +814,15 @@ struct nrc_ent *np;
 	long offset;
 
 	/* Write separator */
-	for (c=0; c<20; c++) fputc (1, nws_fd);
-	fprintf (nws_fd, "\r\n");
+	for (c=0; c<20; c++) if(putc(1, nws_fd)==EOF) return(-1);
+	if((fprintf(nws_fd, "\r\n") < 0) && ferror(nws_fd)) return(-1);
 
 	/* Write index file entry for this group if there isn't
 	   already one */
-	if (!zip_flag)
-	{
+	if (!zip_flag) {
 		offset = ftell (nws_fd);
-		fprintf (idx_fd, "N %08d %s\r\n", offset, np->name);
+		if(	(fprintf(idx_fd, "N %08ld %s\r\n", offset, np->name) < 0)
+			&& ferror(idx_fd) ) return(-1);
 		zip_flag = 1;
 	}
 
@@ -649,25 +830,26 @@ struct nrc_ent *np;
 	blk_cnt += (bytes + 64) / 128;
 
         /* Copy bytes */
-        while (bytes--)
-        {
-                c = fgetc (art_fd);
+        while (bytes--) {
+                if( (c = getc(art_fd))==EOF) return(-1);
 
 		/* ZipNews doesn't like ^Z's */
 		if (c == 26) c = 32;
 
 		/* Map LF to CRLF */
-		if (c == 10) fputc (13, nws_fd);
+		if( c==10 && putc(13, nws_fd)==EOF)
+			return -1;
 
-                fputc ((0xff & c), nws_fd);
+                if( putc((0xff & c), nws_fd)==EOF)
+			return -1;
         }
-        return (1);
+        return 1;
 }
 
-OutOfMemory()
+void OutOfMemory()
 {
 	fprintf (stderr, "%s: out of memory\n", progname);
-	exit (0);
+	exit(-1);
 }
 
 struct sub_ent *SubList (c)
@@ -685,48 +867,40 @@ char *c;
 
 	/* Loop through line entries */
 	range = strtok (c, ",");
-	while (range != NULL)
-	{
+	while (range != NULL) {
 		/* Get space for new list entry */
 		if (NULL == (sp = (struct sub_ent *)
 			malloc (sizeof (struct sub_ent)))) OutOfMemory();
 
 		/* Determine if it's a range or single entry */
-		if (2 == sscanf (range, "%d-%d", &lo, &hi))
-		{
+		if (2 == sscanf (range, "%d-%d", &lo, &hi)) {
 			sp->lo = lo;
 			sp->hi = hi;
 
 			/* Reverse them in case they're backwards */
-			if (hi < lo)
-			{
+			if (hi < lo) {
 				sp->lo = hi;
 				sp->hi = lo;
 			}
-		}
-		else	/* Not a range */
-		{
+		} else {
+			/* Not a range */
 			sp->lo = atoi (range);
 			sp->hi = sp->lo;
 		}
 
 		/* Check if range overlaps last one */
-		if ( (sub_list != NULL) && (sp->lo <= (sub_list->hi + 1)))
-		{
+		if ( (sub_list != NULL) && (sp->lo <= (sub_list->hi + 1))) {
 			/* Combine ranges */
 			if (sp->lo < sub_list->lo) sub_list->lo = sp->lo;
 			if (sp->hi > sub_list->hi) sub_list->hi = sp->hi;
 
 			/* Free old one */
 			free (sp);
-		}
-		else
-		{
+		} else {
 			/* No overlap, maintain pointers */
 			sp->next = sub_list;
 			sub_list = sp;
 		}
-
 		range = strtok (NULL, ",");
 	}
 
@@ -743,8 +917,7 @@ struct sub_ent *sp;
 	/* Remember the list is from hi number to lo number */
 
 	/* Look through the list */
-	while (sp != NULL)
-	{
+	while (sp != NULL) {
 		if (num > sp->hi) return (0);
 		if ( (num >= sp->lo) && (num <= sp->hi) ) return (1);
 
@@ -769,8 +942,7 @@ struct sub_ent *sp_head;
 
 	/* If num is much higher than highest list, or the list is
 	   empty, we need new entry */
-	if ( (sp == NULL) || (num > (sp->hi + 1)))
-	{
+	if ( (sp == NULL) || (num > (sp->hi + 1))) {
 		if (NULL == (tsp = (struct sub_ent *)
 			malloc (sizeof (struct sub_ent)))) OutOfMemory();
 
@@ -784,11 +956,9 @@ struct sub_ent *sp_head;
 	lsp = NULL;
 
 	/* Find appropriate entry for this number */
-	while (sp != NULL)
-	{
+	while (sp != NULL) {
 		/* Have to squeeze one in before this one? */
-		if (num > (sp->hi + 1))
-		{
+		if (num > (sp->hi + 1)) {
 			if (NULL == (tsp = (struct sub_ent *)
 				malloc (sizeof (struct sub_ent))))
 					OutOfMemory();
@@ -801,8 +971,7 @@ struct sub_ent *sp_head;
 		}
 
 		/* One greater than entry's hi? */
-		if (num == (sp->hi + 1))
-		{
+		if (num == (sp->hi + 1)) {
 			sp->hi = num;
 			return (sp_head);
 		}
@@ -811,26 +980,21 @@ struct sub_ent *sp_head;
 		if ( (num >= sp->lo) && (num <= sp->hi) ) return (sp_head);
 
 		/* One too lo, must check if we merge with next entry */
-		if (num == (sp->lo - 1))
-		{
-			if (NULL == sp->next)
-			{
+		if (num == (sp->lo - 1)) {
+			if (NULL == sp->next) {
 				/* No next entry to merge with */
 				sp->lo = num;
 				return (sp_head);
 			}
 
 			/* Check for merge */
-			if (num == (sp->next->hi + 1))
-			{
+			if (num == (sp->next->hi + 1)) {
 				tsp = sp->next;
 				sp->lo = tsp->lo;
 				sp->next = tsp->next;
 				free (tsp);
 				return (sp_head);
-			}
-			else
-			{
+			} else {
 				/* No merge */
 				sp->lo = num;
 				return (sp_head);
@@ -852,7 +1016,7 @@ struct sub_ent *sp_head;
 	return (sp_head);
 }
 
-WriteSub (fd, sp)
+void WriteSub (fd, sp)
 FILE *fd;
 struct sub_ent *sp;
 /*
@@ -864,22 +1028,20 @@ struct sub_ent *sp;
 	fprintf (fd, "\n");
 }
 
-ws (fd, sp, sp_head)
+void ws (fd, sp, sp_head)
 FILE *fd;
 struct sub_ent *sp, *sp_head;
 {
-	if (sp == NULL) return (0);
+	if (sp == NULL)
+		return;
 
 	/* Do the rest of them */
 	ws (fd, sp->next, sp_head);
 
 	/* Do this one */
-	if (sp->lo == sp->hi)
-	{
+	if (sp->lo == sp->hi) {
 		fprintf (fd, "%d", sp->lo); fflush (fd);
-	}
-	else
-	{
+	} else {
 		fprintf (fd, "%d-%d", sp->lo, sp->hi); fflush (fd);
 	}
 
@@ -897,8 +1059,7 @@ int lo, hi;
 
 	/* If the list is empty, make one new entry marking everything
 	   up to the lowest available article as read */
-	if (sp == NULL)
-	{
+	if (sp == NULL) {
 		if (NULL == (tsp1 = (struct sub_ent *) malloc
 			(sizeof (struct sub_ent)))) OutOfMemory();
 
@@ -910,16 +1071,14 @@ int lo, hi;
 
 	/* If the highest read article is greater than the highest
 	   available article, assume the group has been reset */
-	if (sp->hi > hi)
-	{
+	if (sp->hi > hi) {
 		/* Mark everything as unread */
 		sp->lo = 1;
 		sp->hi = (lo > 1) ? (lo-1) : 1;
 
 		/* Free the rest */
 		tsp1 = sp->next;
-		while (tsp1 != NULL)
-		{
+		while (tsp1 != NULL) {
 			tsp2 = tsp1->next;
 			free (tsp1);
 			tsp1 = tsp2;
@@ -931,22 +1090,19 @@ int lo, hi;
 	/* Now walk through the list and eliminate ranges lower
 	   than the lowest available article */
 	tsp1 = sp;
-	while (tsp1 != NULL)
-	{
+	while (tsp1 != NULL) {
 		/* If lowest read article of this range is smaller
 		   than the lowest available article, all the rest
 		   of the ranges are unnecessary */
 
-		if (tsp1->lo < lo)
-		{
+		if (tsp1->lo < lo) {
 			/* Make this range from 1 to lo */
 			tsp1->lo = 1;
 			if (tsp1->hi < lo) tsp1->hi = lo - 1;
 
 			/* Free the rest */
 			tsp2 = tsp1->next;
-			while (tsp2 != NULL)
-			{
+			while (tsp2 != NULL) {
 				tsp3 = tsp2->next;
 				free (tsp2);
 				tsp2 = tsp3;
@@ -968,25 +1124,23 @@ int OpenZipFiles ()
 
 	/* Open .nws file */
 	sprintf (fn, "%s/%s.nws", home_dir, user_name);
-	if (NULL == (nws_fd = fopen (fn, "wb")))
-	{
+	if (NULL == (nws_fd = fopen (fn, "w"))) {
 		fprintf (stderr, "%s: can't open %s\n", progname, fn);
-		return (0);
+		return(-1);
 	}
 
 	/* Open .idx file */
 	sprintf (fn, "%s/%s.idx", home_dir, user_name);
-	if (NULL == (idx_fd = fopen (fn, "wb")))
-	{
+	if (NULL == (idx_fd = fopen (fn, "w"))) {
 		fprintf (stderr, "%s: can't open %s\n", progname, fn);
 		fclose (nws_fd);
-		return (0);
+		return(-1);
 	}
 
 	return (1);
 }
 
-WriteJoin ()
+int WriteJoin ()
 /*
  *  Write the ZipNews join file
  */
@@ -997,36 +1151,33 @@ WriteJoin ()
 
 	/* Open join file */
 	sprintf (fn, "%s/%s.jn", home_dir, user_name);
-	if (NULL == (fd = fopen (fn, "wb")))
-	{
+	if (NULL == (fd = fopen (fn, "w"))) {
 		fprintf (stderr, "%s: can't open %s\n", progname, fn);
-		return (0);
+		return -1;
 	}
 
 	/* Walk through the newsrc */
 	np = nrc_list;
-	while (np != NULL)
-	{
-		if (np->subscribed)
-		{
-			if (np->sub == NULL)
-			{
-				fprintf (fd, "%s 0\r\n", np->name);
-			}
-			else
-			{
-				fprintf (fd, "%s %d\r\n",
-					np->name, np->sub->hi);
+	while (np != NULL) {
+		if (np->subscribed) {
+			if (np->sub == NULL) {
+				if((fprintf(fd, "%s 0\r\n", np->name) < 0)
+				&& ferror(fd) )
+					return -1;
+			} else {
+				if((fprintf (fd, "%s %d\r\n", np->name, np->sub->hi) < 0)
+				&& ferror(fd) )
+					return -1;
 			}
 		}
 		np = np->next;
 	}
 
 	fclose (fd);
-	return (1);
+	return 1;
 }
 
-NdxClose (fd)
+void NdxClose (fd)
 FILE *fd;
 /*
  *  Close ndx file, remove if empty
@@ -1044,7 +1195,7 @@ FILE *fd;
 	if (offset == 0) unlink (ndx_fn);
 }
 
-MsgClose (fd)
+void MsgClose (fd)
 FILE *fd;
 /*
  *  Close msg file, remove if empty
@@ -1059,10 +1210,11 @@ FILE *fd;
 	fclose (fd);
 
 	/* Remove it if it's empty */
-	if (offset == 0) unlink (msg_fn);
+	if (offset == 0)
+          unlink (msg_fn);
 }
 
-DoXref (fd, bytes)
+int DoXref (fd, bytes)
 FILE *fd;
 long bytes;
 /*
@@ -1079,31 +1231,29 @@ long bytes;
 	/* Look through header */
 	rc = Fgets (buf, BUF_LEN, fd);
 	n = strlen (buf);
-	while ( (rc != NULL) && (bytes > 0) && (n > 0) )
-	{
+	while ( (rc != NULL) && (bytes > 0) && (n > 0) ) {
 		/* Xref: line? */
-		if (!strncmp (buf, "Xref: ", 6))
-		{
+		if (!strncmp (buf, "Xref: ", 6)) {
 			/* Found one, process it */
 			Xref (buf);
 
 			/* Restore position, return */
 			fseek (fd, offset, 0);
-			return (1);
+			return 1;
 		}
 
 		/* Get next line */
 		bytes -= n;
 		rc = Fgets (buf, BUF_LEN, fd);
 		if (rc != NULL) n = strlen (buf);
-	}	
+	}
 
 	/* Reposition file */
 	fseek (fd, offset, 0);
-	return (0);
+	return 0;
 }
 
-Xref (s)
+int Xref (s)
 char *s;
 /*
  *  Process an Xref line.
@@ -1115,26 +1265,24 @@ char *s;
 
 	/* Skip the first two fields (Xref: and host) */
 	c = strtok (s, " \t");
-	if (c == NULL) return (0);
+	if (c == NULL)
+		return 0;
 	c = strtok (NULL, " \t");
-	if (c == NULL) return (0);
+	if (c == NULL)
+		return 0;
 
 	/* Look through the rest of the fields */
 	c = strtok (NULL, " \t");
-	while (c != NULL)
-	{
+	while (c != NULL) {
 		/* Change : to space */
 		for (p=c; *p; p++) if (*p == ':') *p = ' ';
 
 		/* Parse xref entry */
-		if (2 == sscanf (c, "%s %d", name, &num))
-		{
+		if (2 == sscanf (c, "%s %d", name, &num)) {
 			/* Find nrc entry for this group */
-			for (np=nrc_list; np!=NULL; np=np->next)
-			{
+			for (np=nrc_list; np!=NULL; np=np->next) {
 				/* Match? */
-				if (!strcmp (np->name, name))
-				{
+				if (!strcmp (np->name, name)) {
 					/* Mark as read */
 					np->sub = MarkRead (num, np->sub);
 					break;
@@ -1146,10 +1294,10 @@ char *s;
 		c = strtok (NULL, " \t");
 	}
 
-	return (0);
+	return 0;
 }
 
-SumArticle (fd, artnum, bytes, np)
+int SumArticle (fd, artnum, bytes, np)
 FILE *fd;
 long bytes;
 struct nrc_ent *np;
@@ -1164,40 +1312,45 @@ int artnum;
 	if (!GetHdr (fd, subject, bytes, "Subject: ")) return (0);
 
 	/* Write group name if this is first article for group */
-	if (sum_flag == 0)
-	{
+	if (sum_flag == 0) {
 		sum_flag = 1;
-		fprintf (sum_fd, "\r\n*** %s\r\n", np->name);
+		if((fprintf (sum_fd, "\r\n*** %s\r\n", np->name) < 0)
+		&& ferror(fd) )
+			return -1;
 	}
 
 	/* Write article number, subject line */
-	fprintf (sum_fd, "%d:%s\r\n", artnum, subject);
+	if((fprintf(sum_fd, "%d:%s\r\n", artnum, subject) < 0) && ferror(fd))
+		return -1;
+
+	return 0;
 }
 
-DoSelect ()
+int DoSelect ()
 /*
  *  Select articles from a summary file
  */
 {
-	char group[PATH_LEN], news_path[PATH_LEN], *p;
+	char group[PATH_LEN], news_path[PATH_LEN];
+#ifndef NNTP
+	char *p;
+#endif
 	int artnum;
 	struct act_ent *ap;
-	struct nrc_ent *np, *tnp;
-	struct conf_ent *cp;
+	struct nrc_ent *np = NULL, *tnp;
+	struct conf_ent *cp = NULL;
 
 	/* Open selection file */
-	if (NULL == (sel_fd = fopen (sel_file, "r")))
-	{
+	if (NULL == (sel_fd = fopen (sel_file, "r"))) {
 		fprintf (stderr, "%s: can't open %s\n", progname, sel_file);
-		return (0);
+		return -1;
 	}
 
 	/* Show no group yet */
 	group[0] = 0;
 
 	/* Read through lines */
-	while (NULL != Fgets (buf, BUF_LEN, sel_fd))
-	{
+	while (NULL != Fgets (buf, BUF_LEN, sel_fd)) {
 		/* Check if too many blocks already */
 		if ( (blk_cnt >= max_blks) && (max_blks > 0) ) break;
 
@@ -1205,71 +1358,62 @@ DoSelect ()
 		if (0 == strlen (buf)) continue;
 
 		/* First character determines type of line */
-		switch (buf[0])
-		{
+		switch (buf[0]) {
 		case '*':	/* New group */
 
 			/* Close old index files if any */
-			if (group[0] != 0)
-			{
+			if (group[0] != 0) {
 				if (!slnp_mode && !zip_mode && !sum_mode)
 							NdxClose (ndx_fd);
 				if (slnp_mode) MsgClose (msg_fd);
 			}
 
 			/* New newsgroup */
-			if (1 != sscanf (buf, "%*s %s", group))
-			{
+			if (1 != sscanf (buf, "%*s %s", group)) {
 				group[0] = 0;
 				break;
 			}
 
 			/* Find it in newsrc, bail if not there */
 			np = NULL;
-			for (tnp=nrc_list; tnp!=NULL; tnp=tnp->next)
-			{
+			for (tnp=nrc_list; tnp!=NULL; tnp=tnp->next) {
 				if (!strcmp (tnp->name, group)) np = tnp;
 			}
-			if (np == NULL)
-			{
+			if (np == NULL) {
 				group[0] = 0;
 				break;
 			}
 
 			printf ("%s: %s\n", progname, group);
 
+			/* Look up in active file */
+			ap = FindActive (group);
+
+			/* Do nothing if not in active file */
+			if (ap == NULL) {
+				/* Show no valid group */
+				group[0] = 0;
+				break;
+			}
+
 			/* Make new conference */
 			cp = NewConference (group, np->conf);
 
 			/* No ZipNews index yet */
 			if (zip_mode) zip_flag = 0;
-#ifdef SERVER
+#ifdef NNTP
+	#ifdef NTP_FULL_ACTIVE
 			/* Select group from NNTP server */
 			group_nntp (group);
+	#endif
 #else
 			/* Make news path */
 			sprintf (news_path, "%s/%s/", news_dir, group);
 			for (p=(&news_path[0]); *p; p++)
 				if (*p == '.') *p = '/';
 #endif
-			/* Look up in active file */
-			ap = FindActive (group);
-
-			/* Do nothing if not in active file */
-			if (ap == NULL)
-			{
-				/* Show no valid group */
-				group[0] = 0;
-
-				if (!slnp_mode && !zip_mode && !sum_mode)
-							NdxClose (ndx_fd);
-				if (slnp_mode) MsgClose (msg_fd);
-			}
-			else
-			{
-				/* Fix up the subscription list */
-				np->sub = FixSub (np->sub, ap->lo, ap->hi);
-			}
+			/* Fix up the subscription list */
+			np->sub = FixSub (np->sub, ap->lo, ap->hi);
 
 			break;
 
@@ -1284,13 +1428,13 @@ DoSelect ()
 		case '8':
 		case '9':
 			/* Wants article; skip if no group */
-			if (group[0] != 0)
-			{
+			if (group[0] != 0) {
 				/* Get article number */
 				sscanf (buf, "%d", &artnum);
 
 				/* Process it */
-				DoArticle (news_path, artnum, np, cp);
+				if( DoArticle(news_path, artnum, np, cp)==-2)
+					return -2;
 
 				/* Mark as read */
 				np->sub = MarkRead (artnum, np->sub);
@@ -1305,4 +1449,3 @@ DoSelect ()
 	fclose (sel_fd);
 	return (1);
 }
-

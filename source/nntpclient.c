@@ -1,17 +1,20 @@
+/*
+ * $Id: nntpclient.c,v 1.8 2001/10/24 11:37:10 js Exp $
+ */
 
 /*
- * 
- * This software is Copyright 1991 by Stan Barber. 
- * 
+ *
+ * This software is Copyright 1991 by Stan Barber.
+ *
  * Permission is hereby granted to copy, reproduce, redistribute or otherwise
  * use this software as long as: there is no monetary profit gained
  * specifically from the use or reproduction of this software, it is not
  * sold, rented, traded or otherwise marketed, and this copyright notice is
- * included prominently in any copy made. 
+ * included prominently in any copy made.
  *
  * The author make no claims as to the fitness or correctness of this software
  * for any use whatsoever, and it is provided as is. Any use of this software
- *is at the user's own risk. 
+ *is at the user's own risk.
  */
 
 
@@ -23,15 +26,18 @@
  *
  *  -- Ken Whedbee   3/31/93
  *
+ * Even more (teensy) modifications have been made while working on uqwk.
+ *  -- J$, 3/8/1999
+ *
  */
 
 #include <stdio.h>
 #include "nntp.h"
-#include "uqwk.h"
+#if defined(NNTP) || defined (NNTPAUTH)
 
+#include "uqwk.h"
 #define Nullfp Null(FILE *)
 #define MAXFILENAME 128
-#define SERVER_FILE "/local/lib/news/server"	/* news server file */
 
 
 char ser_line[NNTP_STRLEN];
@@ -44,7 +50,7 @@ extern  int     get_server ();
 extern  void    close_server ();
 
 void connect_nntp();
-FILE *getactive_nntp(); 
+FILE *getactive_nntp();
 void group_nntp();
 FILE *nntpopen();
 int nntp_get();
@@ -58,10 +64,10 @@ connect_nntp()
 
     /* open connection to server if appropriate */
 
-    server = getserverbyfile(SERVER_FILE);
+    server = getserverbyfile(NNTP_HOST_FILE);
     if (server == NULL) {
 	fprintf(stderr, "Can't get the name of the news server from %s\n",
-		SERVER_FILE);
+		NNTP_HOST_FILE);
 	fprintf(stderr,
 	  "Either fix this file, or put NNTPSERVER in your environment.\n");
 	exit(1);
@@ -82,6 +88,22 @@ connect_nntp()
     put_server ("mode reader");
     nntp_get (ser_line, sizeof(ser_line));
 
+#ifdef NNTPAUTH
+    if(do_auth)
+    {
+	char s[256];
+	sprintf(s, "authinfo user %s", auth_user);
+	put_server(s);
+	nntp_get (ser_line, sizeof(ser_line));
+	sprintf(s, "authinfo pass %s", auth_pass);
+	put_server(s);
+	nntp_get (ser_line, sizeof(ser_line));
+	if (*ser_line != CHAR_OK) {		/* and then see if that's ok */
+		fprintf(stderr, "NNTP authentication failed:\n\t%s\n", ser_line);
+		exit(1);
+	}
+    }
+#endif
 }
 
 
@@ -99,22 +121,22 @@ FILE
     put_server("LIST");		/* tell server we want the active file */
     nntp_get(ser_line, sizeof(ser_line));
     if (*ser_line != CHAR_OK) {		/* and then see if that's ok */
-	fprintf(stdout, "Can't get active file from server: \n%s\n", ser_line);
+	fprintf(stderr, "Can't get active file from server:\n\t%s\n", ser_line);
 	exit(1);
     }
                                         /* make a temporary name */
-    sprintf(active_name,"%s/rrnact.%d",TEMPDIR,getpid());
+    sprintf(active_name,"/tmp/rrnact.%d",(int)getpid());
 
-    actfp = fopen(active_name, "w+b");	/* and get ready */
+    actfp = fopen(active_name, "w+");	/* and get ready */
 
     if (actfp == (FILE *)NULL) {
-	printf("Cant open %s\n",active_name), fflush(stdout);
+	fprintf(stderr,"Cant open %s\n",active_name), fflush(stdout);
 	exit(1);
     }
 
     while (1) {
 	if (nntp_get(ser_line, sizeof(ser_line)) < 0) {
-	    printf("Can't get active file from server\n");
+	    fprintf(stderr,"Can't get active file from server\n");
 	    exit(1);
 	}
 	if (ser_line[0] == '.')		/* while there's another line */
@@ -124,15 +146,15 @@ FILE
     }
 
     if (ferror(actfp)) {
-	printf("Error writing to active file %s.\n", active_name), fflush(stdout);
+	fprintf(stderr,"Error writing to active file %s.\n", active_name), fflush(stdout);
 	exit(1);
     }
     if (fseek(actfp,0L,0) == -1) {	/* just get to the beginning */
-	printf("Error seeking in active file.\n"), fflush(stdout);
+	fprintf(stderr,"Error seeking in active file.\n"), fflush(stdout);
 	exit(1);
     }
 
-    return actfp; 			/* return active file ptr */
+    return actfp;/* return active file ptr */
 }
 
 
@@ -140,17 +162,18 @@ void
 group_nntp(ngname)    /* select newsgroup to read from */
 char *ngname;
 {
-
     sprintf(ser_line, "GROUP %s", ngname);
     put_server(ser_line);
     if (nntp_get(ser_line, sizeof(ser_line)) < 0) {
 	fprintf(stderr, "\nrrn: Unexpected close of server socket.\n");
+	/* Update .newsrc, &c. */
 	exit(1);
     }
     if (*ser_line != CHAR_OK) {
 	if (atoi(ser_line) != ERR_NOGROUP){
 		fprintf(stderr, "\nrrn: server response to GROUP %s:\n%s\n",
 			ngname, ser_line);
+		/* Update .newsrc, &c. */
 		exit(1);
 	}
     }
@@ -167,7 +190,7 @@ char *ngname;
  **
  **/
 
-FILE 
+FILE
 *nntpopen(artnum,function)
 int artnum;
 int function;
@@ -178,8 +201,8 @@ int function;
     if (artnum < 1)
 	return (FILE *)NULL;
 
-    sprintf(artname,"%s/rrn%ld.%ld", TEMPDIR, (long) artnum, getpid());
-    artfp = fopen(artname, "w+b");	/* create the temporary article */
+    sprintf(artname,"/tmp/rrn%ld.%ld", (long) artnum, (long) getpid());
+    artfp = fopen(artname, "w+");	/* create the temporary article */
     if (artfp == (FILE *)NULL) {
 	unlink(artname);
 	return (FILE *)NULL;
@@ -193,7 +216,7 @@ int function;
 	    case GET_ARTICLE:
 		sprintf(ser_line, "ARTICLE %ld", (long)artnum);
 		break;
-    }	    
+    }
     put_server(ser_line);		/* ask the server for the article */
     if (nntp_get(ser_line, sizeof(ser_line)) < 0) {
 	fprintf(stderr, "\nrrn: Unexpected close of server socket.\n");
@@ -214,8 +237,9 @@ int function;
 	    fprintf(stderr, "\nrrn: Unexpected close of server socket.\n");
 	    exit(1);
 	}
-	if (ser_line[0] == '.' && ser_line[1] == '\0')
+	if (ser_line[0] == '.' && ser_line[1] == '\0') {
 		break;
+	}
 	fputs((ser_line[0] == '.' ? ser_line + 1 : ser_line), artfp);
 	putc('\n', artfp);
     }
@@ -231,15 +255,16 @@ int function;
 
 
 
-int 
+int
 nntp_get(buf, len)
 char *buf;
 int  len;
 {
- 	int n;
+int n;
 
- 	n = get_server(buf, len);
+n = get_server(buf, len);
 
- 	return n;
+return n;
 }
-
+
+#endif /* defined(NNTP) || defined (NNTPAUTH) */

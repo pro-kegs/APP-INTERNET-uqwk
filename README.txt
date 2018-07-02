@@ -1,10 +1,17 @@
-UQWK
+				$Id: README,v 1.3 2000/01/03 08:56:55 js Exp $
 
-Copyright 1993-1994, steve belczyk
+
+UQWK
+                       Copyright     1993-1994,             steve belczyk
+                       Modifications 1996, 1997, 1998, 1999,
+                                     2000                   jeroen scheerder
+
 
 uqwk is a program which collects all a user's unread mail or news
 and formats it into a packet for offline reading.  QWK, Simple
 Offline Usenet Packet (SOUP), and ZipNews packet formats are supported.
+See the manual page for sommand line options, environment variables and
+examples.
 
 Uqwk also accepts reply packets, so replies can be mailed or posted,
 depending whether the message is marked private (email) or public (news).
@@ -12,44 +19,35 @@ depending whether the message is marked private (email) or public (news).
 Uqwk also supports a small offline command language, so the contents
 of the user's .newsrc file can be viewed and manipulated offline.
 
-INSTALLATION
+0.  Install uqwk if not installed already; see the INSTALL file.
 
-1.  Create a directory for the uqwk source code.
+1.  Now you can try it.  Login as a normal user who has some mail.
+    First, tell uqwk to print its options: issue
 
-	mkdir /usr/local/src/uqwk
+	uqwk -p
 
-2.  Move the uqwk tar file to that directory.
+    Check that the output reflects your choices in the makefile.
+    Next, issue:
 
-	mv uqwk.tar.Z /usr/local/src/uqwk
+	uqwk +r +m
 
-3.  Change to that directory, and unpack the tar file.
+    (The "+r" stops uqwk from clearing the user's mail spool file.)
+    This should create a number of *.MSG files in your home directory,
+    along with a file named AREAS.  These are the files the offline
+    SOUP reader will need.  (Some readers expect these files to have been
+    archived using an archiver like zip, lharc, or arj.  You may need
+    to obtain Unix versions of these archivers.)
 
-	cd /usr/local/src/uqwk; zcat uqwk.tar | tar xvf -
-
-4.  Compile the software.
-
-	make
-
-    If you're going to be getting news from a server using NNTP,
-    you must use the NNTP version of the Makefile:
-
-	make -f Makefile.nntp
-
-    If this doesn't work you may have to twiddle with the Makefile,
-    or, heaven forbid, the actual source code.
-
-5.  Move the binary and man pages to some public place.
-
-	mv uqwk /usr/local/bin
-	mv uqwk.man /usr/man/man1/uqwk.1
-	mv uqwk.cat /usr/man/cat1/uqwk.1
-
-6.  The QWK specification allows for the name, location, etc., of
-    the BBS from which messages are being downloaded.  If you plan
-    to use the QWK format, you should configure this information.
-    The best way is probably to use environment variables.  If you
-    are using a Bourne shell, you should add something like this to
-    /etc/profile or .profile:
+2a. If you will not be using uqwk in QWK mode (hurray!), you need not
+    even  bother reading [2b]; advance to [3].
+2b. If you are using uqwk to create QWK packets (please *don't*, really,
+    since the QWK format does not allow storing Usenet messages
+    correctly): QWK packets contain the name, location, etc., of the BBS
+    from which messages are being downloaded.  If you plan to use the
+    QWK format (please, please, please don't!), you should configure
+    this information. The best way is probably to use environment
+    variables.  If you are using a Bourne shell, you should add
+    something like this to /etc/profile or .profile:
 
         UQ_BBS_NAME="My Super BBS"
 	UQ_BBS_CITY="Somewhere, PA"
@@ -73,26 +71,5 @@ INSTALLATION
     nine characters, with no intervening spaces.  The string will be
     used to identify reply packets.
 
-7.  Now you can try it.  Log in as a normal user who has some mail,
-    and issue:
-
-	uqwk +r
-
-    (The "+r" stops uqwk from clearing the user's mail spool file.)
-    This should create three new files in the current directory named
-    messages.dat, control.dat, and personal.ndx.  These are the files
-    which the offline reader will need.  (Not all readers need the
-    *.ndx files.  Also, some readers expect these files to have been
-    archived using an archiver like zip, lharc, or arj.  You may need
-    to obtain Unix versions of these archivers.)
-
-8.  Now it would be a good idea to read the man page ("more uqwk.cat")
+3.  Now would be a good time for reading the man page ("man uqwk")
     and the Frequently Asked Questions list ("more FAQ").
-
-Please inform me of any problems you run into:
-
-    steve belczyk
-    steve1@genesis.nred.ma.us
-    seb3@gte.com
-    BBS: +1 508 664 0149
-
